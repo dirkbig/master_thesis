@@ -2,7 +2,7 @@ import numpy as np
 
 
 class BatteryModel:
-    soc = 80  # state of charge
+    # soc = 80  # state of charge
 
     def __init__(self, Capa, maxChargePower, maxDischargePower, initSoc, dt):
         self.Capa = Capa
@@ -10,13 +10,11 @@ class BatteryModel:
         self.maxDischargePower = maxDischargePower
         self.initSoc = initSoc
         self.dt = dt
-        global soc
-        soc = initSoc
+        self.soc = initSoc
 
     def get_soc(self, battPower):
-        global soc
         soc_change = - np.maximum(np.minimum(battPower, self.maxDischargePower),
                                   self.maxChargePower) * self.dt / self.Capa * 100
-        soc += soc_change
-        return (soc)
+        self.soc += soc_change
+        return (self.soc)
 

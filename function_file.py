@@ -39,7 +39,7 @@ def calc_revenue_j(payment_i, demand_i, c_i, total_energy_surplus):
 
 def calc_utility_function_i(bidding_price, demand_i):
     """This function calculates buyers utility"""
-    utility_i = demand_i * (C_i[0] - bidding_price)
+    utility_i = demand_i * (bidding_price[0] - bidding_price)
     return utility_i
 
 
@@ -53,14 +53,16 @@ def calc_utility_function_j(estimated_energy_j, w_j_storage_factor, revenue_j):
 def define_pool(consumption_at_round, production_at_round):
     """this function has to decide whether agent is a buyer or a seller"""
     supply = production_at_round - consumption_at_round
-    print(supply)
     if supply > 0:
         classification = "seller"
     elif supply < 0:
         classification = "buyer"
     else:
         classification = "passive"
-    return classification
+    return [classification, supply]
+
+def define_E():
+    pass
 
 
 

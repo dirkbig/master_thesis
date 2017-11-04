@@ -89,24 +89,33 @@ class HouseholdAgent(Agent):
     """All microgrid agents should be generated here; initialisation of prosumer tools """
     def __init__(self, unique_id, batterycapacity_total, pvgeneration, consumption, model):
         super().__init__(unique_id, model)
-        self.ID = unique_id
-        self.BatteryCapacity = 0             # random.choice(range(15)) * batterycapacity_total
-        self.PvGeneration = 0              # random.choice(range(15)) * pvgeneration
-        self.Consumption = 0              # random.choice(range(15)) * consumption
-        self.Classification = []
+        self.id = unique_id
+        self.battery_capacity = 0             # random.choice(range(15)) * batterycapacity_total
+        self.pv_generation = 0              # random.choice(range(15)) * pvgeneration
+        self.consumption = 0              # random.choice(range(15)) * consumption
+        self.classification = []
+        self.results = []
+        self.supply = 0
+        """control varaiables c_i and w_j"""
+        self.bidding_price = 0
+        self.w_j_storage_factor = 0
 
-    def step(self, bla):
+    def step(self, agents, big_data_file_per_step):
         """Agent optimization step, what ever specific agents do on during step"""
-        self.PvGeneration = bla[unique_id][1]
-        self.Consumption = 10
-        self.BatteryCapacity = 0
-        classification = define_pool(self.Consumption, self.PvGeneration)               # First define the pool
+        self.consumption = big_data_file_per_step[self.id, 0] # import load file
+        self.pv_generation = big_data_file_per_step[self.id, 1] # import generation file
+        self.battery_capacity = big_data_file_per_step[self.id, 2]
+        define_pool_return = define_pool(self.consumption, self.pv_generation)               # First define the pool
+        classification = define_pool_return[0]
+        self.supply = define_pool_return[1]
         if classification == "seller":
-            print("I am a seller")
-            self.Classification = ["buyer"]
+            print("<Household %d says: I am a %s" % (self.id, classification))
+            self.classification = ["buyer"]
         if classification == "buyer":
-            print("I am a buyer")
-            self.Classification = ["seller"]
+            print("<Household %d says: I am a %s" % (self.id, classification))
+            self.classification = ["seller"]
+        return self.supply
+
 
 
     def seller_utility(self):
@@ -119,27 +128,39 @@ class HouseholdAgent(Agent):
 
     def classification(self):
         """is this agent a prosumer of a consumer? So leader or follower"""
-        if self.PvGeneration < self.Consumption:
-            self.Classification = ["Leader"]
+        if self.pv_generation < self.consumption:
+            self.classification = ["Leader"]
         else:
-            self.Classification = ["Follower"]
+            self.classification = ["Follower"]
 
     def __repr__(self):
-        return " BatteryCapacity:%d PvGeneration:%d, Consumption:%d" % (self.BatteryCapacity, self.PvGeneration, self.Consumption)
+        return "<ID: %d, BatteryCapacity:%d, PvGeneration:%d, Consumption:%d>" % (self.id, self.battery_capacity, self.pv_generation, self.consumption)
 
 
 class MicroGrid(Model):
     """create environment in which agents can operate"""
-    def __init__(self, N):
+    def __init__(self, N, big_data_file):
         self.num_households = N
-        self.schedule = RandomActivation(self)
+        self.steps = 0
+        self.time = 0
+        self.big_data_file = big_data_file
+        # self.schedule = RandomActivation(self)
+        self.agents = []
         for e in range(self.num_households):    # create a set of N agents with activations schedule and
             agent = HouseholdAgent(e, household_char.iloc[e, 1], household_char.iloc[e, 2], household_char.iloc[e, 3], self)
-            self.schedule.add(agent)
+            # self.schedule.add(agent)
+            self.agents.append(agent)
 
     def step(self):
         """Environment proceeds a step after all agents took a step."""
-        self.schedule.step()
-
+        # self.schedule.step()
+        random.shuffle(self.agents)
+        supply = 0
+        for agent in self.agents[:]:
+            supply_agent = agent.step(self.agents, self.big_data_file[self.steps])
+            supply += supply_agent
+        self.steps += 1
+        self.time += 1
+        return supply
 
 

@@ -1,6 +1,7 @@
 from microgrid_model import *
 from function_file import *
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 
@@ -18,26 +19,36 @@ load = "load_test.csv"           # load has comma
 production = "solar_test.csv"    # solar has semicolon
 
 
-"""Loads in data"""
+"""Loads in data of a typical seller"""
 load_file = read_csv(load, duration)
 production_file = read_csv(production, duration)
 battery_file = np.ones(duration)
 master_file = [load_file, production_file]
 
+
+"""Creates data of a typical buyer"""
+
+
+
 """gives all agents initial load and production prediction of the day"""
-agent_file = np.zeros((duration, 3))
-list_of_agents = np.zeros(N)
-for i in range(N):                                                       # "for agent in model_testrun.schedule.agents:"
-    for j in range(duration):
-        agent_file[j][0] = load_file[j]
-        agent_file[j][1] = production_file[j]
-        agent_file[j][2] = battery_file[j]
-    list_of_agents = np.append(list_of_agents, agent_file)
+
+big_data_file = np.zeros((duration,N,3))             # list of data_file entries per agents
+for i in range(duration):
+    agent_file = np.zeros((N, 3))  # agent_file
+    for j in range(N):
+        big_data_file[i][j][0] = load_file[i]
+        big_data_file[i][j][1] = production_file[i]
+        big_data_file[i][j][2] = battery_file[i]
+    big_data_file[i][0][1] = 0          # for player 1,
+
+
 
 
 # MODEL CREATION
-model_testrun = MicroGrid(N)        # create microgrid model with N agents
+model_testrun = MicroGrid(N, big_data_file)        # create microgrid model with N agents
 
+# import pdb
+# pdb.set_trace()
 
 # print(agent_file)
 # print(list_of_agents[1])
@@ -48,12 +59,12 @@ model_testrun = MicroGrid(N)        # create microgrid model with N agents
 
 """Microgrid ABM makes steps over the duration of the simulation"""
 duration_test = duration
+supply_over_time_list = []
 for i in range(duration):
-    model_testrun.step()
-    for j in range(N):
-        print(model_testrun.schedule.agents[j].PvGeneration)
+    supply = model_testrun.step()
+    supply_over_time_list.append(supply)
 
-
+supply_over_time = np.array(supply_over_time_list)
 #
 #
 # TESTING
@@ -64,8 +75,8 @@ print(model_testrun.schedule.agents[1].Consumption)
 
 """
 
-# plt.plot(load_file)
+plt.plot(supply_over_time)
 # plt.plot(agent_file[1])
-# plt.show()
+plt.show()
 
 
