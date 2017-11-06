@@ -19,29 +19,29 @@ load = "load_test.csv"           # load has comma
 production = "solar_test.csv"    # solar has semicolon
 
 
-"""Loads in data of a typical seller"""
-load_file = read_csv(load, duration)
-production_file = read_csv(production, duration)
-battery_file = np.ones(duration)
-master_file = [load_file, production_file]
+load_file_agents = np.zeros((N,duration))
+production_file_agents = np.zeros((N,duration))
+# production_file = np.zeros(N)
+battery_file_agents = np.zeros((N,duration))
+master_file = np.zeros((N, duration, 3))
 
 
-"""Creates data of a typical buyer"""
+"""Loads in data of a typical agent"""
+for agent in range(N):
+    load_file_agents[agent] = read_csv(load, duration)
+    production_file_agents[agent] = read_csv(production, duration)
+    battery_file_agents[agent] = np.ones(duration)
 
 
-
-"""gives all agents initial load and production prediction of the day"""
-
+"""Gives all agents initial load and production prediction for the day"""
 big_data_file = np.zeros((duration,N,3))             # list of data_file entries per agents
 for i in range(duration):
     agent_file = np.zeros((N, 3))  # agent_file
     for j in range(N):
-        big_data_file[i][j][0] = load_file[i]
-        big_data_file[i][j][1] = production_file[i]
-        big_data_file[i][j][2] = battery_file[i]
-    big_data_file[i][0][1] = 0          # for player 1,
-
-
+        big_data_file[i][j][0] = load_file_agents[j][i]
+        big_data_file[i][j][1] = production_file_agents[j][i]
+        big_data_file[i][j][2] = battery_file_agents[j][i]
+    big_data_file[i][0][1] = 0          # for player 1, makes him a consumer
 
 
 # MODEL CREATION
@@ -61,7 +61,7 @@ model_testrun = MicroGrid(N, big_data_file)        # create microgrid model with
 duration_test = duration
 supply_over_time_list = []
 for i in range(duration):
-    supply = model_testrun.step()
+    supply, buyers_pool, sellers_pool = model_testrun.step()
     supply_over_time_list.append(supply)
 
 supply_over_time = np.array(supply_over_time_list)
@@ -75,8 +75,8 @@ print(model_testrun.schedule.agents[1].Consumption)
 
 """
 
-plt.plot(supply_over_time)
+# plt.plot(supply_over_time)
 # plt.plot(agent_file[1])
-plt.show()
+# plt.show()
 
 
