@@ -1,25 +1,11 @@
 import csv
 import numpy as np
 from scipy.optimize import minimize
-
-# Init
-"""Initialization of parameters
-demand_i = 0                                # E_i, total demand of player i at current time_step
-c_S = 5                                     # c_S is selling price of the microgrid
-c_B = 10                                    # c_B is buying price of the microgrid
-C_i = [c_S, c_B]                            # Domain of available prices for bidding player i
-c_i = 10                                    # Bidding price per player c_i
-possible_c_i = range(C_i[0], C_i[1])        # domain of solution for bidding price c_i
-
-c_i_price_vector = 0
-w_j_storage_factor = 0
-total_energy_surplus = 0
-
-"""
+import random
 
 
 def read_csv(filename,duration):                                    # still using a single load pattern for all houses
-    """Reads in load and generation data from dataset"""
+    """Reads in load and generation data from data set"""
     with open(filename) as csvfile:
         CSVread = csv.reader(csvfile, delimiter=',')
         data_return = np.array([])
@@ -57,8 +43,8 @@ def calc_demand(demand_per_agent, ):                                # E_i
 
 
 def allocation_to_i_func(supply_on_step, bidding_price_i, bidding_prices_all):            # w_j_storage_factor is nested in supply_on_step
-    E_i = supply_on_step*(bidding_price_i/(sum(bidding_prices_all)))
-    return E_i
+    Ei = supply_on_step*(bidding_price_i/bidding_prices_all)
+    return Ei
 
 
 def calc_revenue_j(payment_i, demand_i, c_i, total_energy_surplus):
@@ -82,30 +68,103 @@ def calc_utility_function_j(estimated_energy_j, w_j_storage_factor, revenue_j):
     return utility_j
 
 
-def buyers_game_optimization(supply_on_step, bidding_price_i_prev, bidding_prices_all, C_i):
-    """Level 1 game: distributed optimizaton"""
-    E = supply_on_step
-    c_S = C_i[0]
-    c_l_total = bidding_prices_all
+def buyers_game_optimization(supply_on_step, c_macro, bidding_prices_all, bidding_price_i_prev):
+    """Level 1 game: distributed optimization"""
 
-    def utility_buyer(E, c_i, c_S, c_l_total, sign= -1):
+    """globally declared variables, do not use somewhere else!!"""
+    global E_global, c_S_global, c_l_global
+    E_global = supply_on_step
+    c_S_global = c_macro[0]
+    c_l_global = bidding_prices_all
+    c_i_global = bidding_price_i_prev
+
+    initial_conditions = [E_global, c_S_global, c_l_global, c_i_global]        # previous values for
+
+    def utility_buyer(x, sign= -1):
+        x0 = x[0]
+        x1 = x[1]
+        x2 = x[2]
+        x3 = x[3]
+
         """parametric utility function"""
-        return sign*E*(c_i/c_l_total)*c_S - E*(c_i/c_l_total)*c_i
+        return sign*x0*(x3/x2)*x1 - x0*(x3/x2)*x3
 
-    # def constraint1():
-    #     """constraints on optimization"""
-    #     return []
-    #
-    # con1 = {'type': 'eq', 'fun': constraint1}
-    # cons = [con1]
-    bounds = C_i
-    initial_conditions = [bidding_price_i_prev]        # previous values for
-    sol = minimize(lambda c_i: utility_buyer(E, c_i, c_S, c_l_total), initial_conditions, method='SLSQP', bounds=bounds) #, constraints=cons)
+    """fix parameters E_global, c_S_global, c_l_global"""
+    def constraint_param_x0(x):
+        return E_global - x[0]
 
-    return sol.x
+    def constraint_param_x1(x):
+        return c_S_global - x[1]
+
+    def constraint_param_x2(x):
+        return c_l_global - x[2]
+
+    """incorporate various constraints"""
+    con0 = {'type': 'eq', 'fun': constraint_param_x0}
+    con1 = {'type': 'eq', 'fun': constraint_param_x1}
+    con2 = {'type': 'eq', 'fun': constraint_param_x2}
+    cons = [con0, con1, con2]
+    bounds_buyer = ((0, None), (0, None), (0, None), (c_macro[0], c_macro[1]))
 
 
-def sellers_game_optimization(wj, w, c):
+    """optimize using SLSQP(?)"""
+    sol_buyer = minimize(utility_buyer, initial_conditions, method='SLSQP', bounds=bounds_buyer, constraints=cons)
+    # print("optimization result is a bidding price of %f" % sol.x[3])
+    print("buyers game results in %s" % sol_buyer.x)
+    """return 4th element of solution vector."""
+    return sol_buyer.x[3]
+
+
+def calc_gamma():
+    return random.uniform(0, 1)
+    """This function will ultimately predict storage weight
+    This will involve some model predictive AI"""
+
+
+def sellers_game_optimization(total_offering, supply_energy_j, total_supply_energy, gamma, w_j_storage_factor):
+    """ Anticipation on buyers is plugged in here"""
+
+    global Ej_global, R_total_global, gamma_global, E_global, wj_global
+    Ej_global = supply_energy_j
+    R_total_global = total_offering
+    gamma_global = gamma
+    E_global = total_supply_energy
+    wj_global = w_j_storage_factor
+
+    initial_conditions_seller = [Ej_global, R_total_global, gamma_global, E_global, wj_global]
+
+    def utility_seller(x, sign= -1):
+        x0 = x[0]  # Ej_global
+        x1 = x[1]  # R_total_global
+        x2 = x[2]  # gamma_global
+        x3 = x[3]  # E_global
+        x4 = x[4]  # wj_global
+
+        return sign * (1 - x2)*((1.0 + x0*(1 - x4)) + x2 * x1 * (x0 * x4) / x3)
+
+    def constraint_param_seller0(x):
+        return Ej_global - x[0]
+
+    def constraint_param_seller1(x):
+        return R_total_global - x[1]
+
+    def constraint_param_seller2(x):
+        return gamma_global - x[2]
+
+    def constraint_param_seller3(x):
+        return E_global - x[3]
+
+    """incorporate various constraints"""
+    con_seller0 = {'type': 'eq', 'fun': constraint_param_seller0}
+    con_seller1 = {'type': 'eq', 'fun': constraint_param_seller1}
+    con_seller2 = {'type': 'eq', 'fun': constraint_param_seller2}
+    con_seller3 = {'type': 'eq', 'fun': constraint_param_seller3}
+    cons_seller = [con_seller0, con_seller1, con_seller2, con_seller3]
+    bounds_seller = ((0, None), (0, None), (0, None), (0,None ), (0,1))
+
+    sol_seller = minimize(utility_seller, initial_conditions_seller, method='SLSQP', bounds=bounds_seller, constraints=cons_seller)  # bounds=bounds
+    print("sellers game results in %s" % sol_seller.x)
+    return sol_seller.x[4]
     pass
 
 
