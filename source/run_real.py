@@ -1,11 +1,12 @@
-from microgrid_model import *
-from function_file import *
 import numpy as np
-import random
-import matplotlib.pyplot as plt
+
+from source.microgrid_model import *
 
 
-"""Read in real test-data"""
+"""Read in actual data specific to actual agent: this is OK (using opensource data)"""
+
+
+"""Read in real test-data: this is pretty shitty"""
 # """Assign data files"""
 # load = "load_test.csv"           # load has comma
 # production = "solar_test.csv"    # solar has semicolon
@@ -37,7 +38,7 @@ import matplotlib.pyplot as plt
 #
 
 
-
+"""Test with test data: this is almost complete shit"""
 # """test - data for a typical agent"""
 # test_load = ["/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_load_1_csv.csv","/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_load_2_csv.csv","/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_noload_3_csv.csv"]
 # test_production = ["/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_production_1_csv.csv", "/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_production_2_csv.csv","/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_noproduction_3_csv.csv"]
@@ -53,7 +54,7 @@ import matplotlib.pyplot as plt
 #     test_production_file_agents[testagent] = test_production_file_agents[testagent]            # read_csv(test_production[testagent], duration)
 #     test_battery_file_agents[testagent] = test_battery_file_agents         # read_csv(test_battery, duration) # all the same battery ""
 
-"""Fake test data"""
+"""Fake test data: this is complete shit"""
 test_load_file_agents = [[100, 101, 100, 100,100, 100, 100, 100,100,100],[50, 100, 100, 100,100, 100, 100, 100,100,100],[0,0,0,0,0,0,0,0,0,0],[50, 100, 100, 100,100, 100, 100, 100,100,100],[0,0,0,0,0,0,0,0,0,0]]
 test_production_file_agents = [[0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0],[150,150,150,150,150,150,150,150,150,150],[0,0,0,0,0,0,0,0,0,0],[150,150,150,150,150,150,150,150,150,150]]
 test_battery_file_agents = [100, 100, 100, 100,100, 100, 100, 100,100,100]

@@ -1,13 +1,12 @@
+import BatteryModel
 import pandas as pd
 import numpy as np
-import random
 
-from mesa.time import RandomActivation
+from ./Thesis import *
 from mesa import Agent
 from mesa import Model
-from function_file import *
-import PvModel
-import BatteryModel
+
+from source import PvModel
 
 ##############
 ### SET-UP ###
@@ -93,7 +92,7 @@ batt1 = BatteryModel.BatteryModel(Capa_batt1,
                                   maxChargePower_batt1,
                                   maxDischargePower_batt1,
                                   initSoc_batt1,
-                                  dt*1.0/3600)
+                                  dt * 1.0 / 3600)
 
 
 ######################
