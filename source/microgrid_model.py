@@ -2,7 +2,7 @@ import BatteryModel
 import pandas as pd
 import numpy as np
 
-from ./Thesis import *
+from function_file import *
 from mesa import Agent
 from mesa import Model
 
