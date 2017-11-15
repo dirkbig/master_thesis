@@ -1,0 +1,29 @@
+This file is for notes on the code
+
+Storyline of code:
+
+1   Data-sets:
+
+Available Data      Weather:    50 solar panels of 356 days ranging from 01-01-2015 to 31-12-2015.   > Production / Irradiance
+                    Load:       443 homes measured on the day: 02-04-2011                            > Consumption
+                    Batteries:  Define market-penetration when building the ABM through MicroGrid()  > Battery
+import_csv_dataset.py contains functions to read in datasets to a np.array
+
+2   Microgrid model
+
+Task is to connect the load-matching with control tasks. Load-matching by optimize() has to translate into control parameters
+The input/output in power (kWh) is known. Check relation between output in kWh and control parameters.
+
+3   Agents and side-functions
+
+Agents are initialised with a character:
+What kind of load do they have?         self.Consumption
+What kind of production do they have?   self.PVproduction
+What kind of battery is present?        self.BatteryCapacity
+
+
+4   Optimization function optimize()
+
+
+
+
