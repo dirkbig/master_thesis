@@ -38,12 +38,11 @@ def calc_supply(surplus_per_agent, w_j_storage_factor):             # E_j
 
 
 def calc_demand(demand_per_agent, ):                                # E_i
-
     pass
 
 
-def allocation_to_i_func(supply_on_step, bidding_price_i, bidding_prices_all):            # w_j_storage_factor is nested in supply_on_step
-    Ei = supply_on_step*(bidding_price_i/bidding_prices_all)
+def allocation_to_i_func(supply_on_step, bidding_price_i, bidding_prices_total):            # w_j_storage_factor is nested in E_total_supply
+    Ei = supply_on_step*(bidding_price_i/bidding_prices_total)
     return Ei
 
 
@@ -68,19 +67,19 @@ def calc_utility_function_j(estimated_energy_j, w_j_storage_factor, revenue_j):
     return utility_j
 
 
-def buyers_game_optimization(supply_on_step, c_macro, bidding_prices_all, bidding_price_i_prev):
+def buyers_game_optimization(id_buyer, supply_on_step, c_macro, bidding_prices_all, bidding_price_i_prev):
     """Level 1 game: distributed optimization"""
 
     """globally declared variables, do not use somewhere else!!"""
-    global E_global, c_S_global, c_l_global
-    E_global = supply_on_step
-    c_S_global = c_macro[0]
-    c_l_global = bidding_prices_all
-    c_i_global = bidding_price_i_prev
+    global E_global_buyers, c_S_global_buyers, c_l_global_buyers, c_i_global_buyers
+    E_global_buyers = supply_on_step
+    c_S_global_buyers = c_macro[0]
+    c_l_global_buyers = bidding_prices_all
+    c_i_global_buyers = bidding_price_i_prev
 
-    initial_conditions = [E_global, c_S_global, c_l_global, c_i_global]        # previous values for
+    initial_conditions = [E_global_buyers, c_S_global_buyers, c_l_global_buyers, c_i_global_buyers]
 
-    def utility_buyer(x, sign= -1):
+    def utility_buyer(x, sign=-1):
         x0 = x[0]
         x1 = x[1]
         x2 = x[2]
@@ -91,13 +90,13 @@ def buyers_game_optimization(supply_on_step, c_macro, bidding_prices_all, biddin
 
     """fix parameters E_global, c_S_global, c_l_global"""
     def constraint_param_x0(x):
-        return E_global - x[0]
+        return E_global_buyers - x[0]
 
     def constraint_param_x1(x):
-        return c_S_global - x[1]
+        return c_S_global_buyers - x[1]
 
     def constraint_param_x2(x):
-        return c_l_global - x[2]
+        return c_l_global_buyers - x[2]
 
     """incorporate various constraints"""
     con0 = {'type': 'eq', 'fun': constraint_param_x0}
@@ -106,11 +105,10 @@ def buyers_game_optimization(supply_on_step, c_macro, bidding_prices_all, biddin
     cons = [con0, con1, con2]
     bounds_buyer = ((0, None), (0, None), (0, None), (c_macro[0], c_macro[1]))
 
-
     """optimize using SLSQP(?)"""
     sol_buyer = minimize(utility_buyer, initial_conditions, method='SLSQP', bounds=bounds_buyer, constraints=cons)
     # print("optimization result is a bidding price of %f" % sol.x[3])
-    print("buyers game results in %s" % sol_buyer.x)
+    print("buyer %d game results in %s" % (id_buyer, sol_buyer.x[3]))
     """return 4th element of solution vector."""
     return sol_buyer.x[3]
 
@@ -121,38 +119,38 @@ def calc_gamma():
     This will involve some model predictive AI"""
 
 
-def sellers_game_optimization(total_offering, supply_energy_j, total_supply_energy, gamma, w_j_storage_factor):
+def sellers_game_optimization(id_seller, total_offering, supply_energy_j, total_supply_energy, gamma, w_j_storage_factor):
     """ Anticipation on buyers is plugged in here"""
 
-    global Ej_global, R_total_global, gamma_global, E_global, wj_global
-    Ej_global = supply_energy_j
-    R_total_global = total_offering
-    gamma_global = gamma
-    E_global = total_supply_energy
-    wj_global = w_j_storage_factor
+    global Ej_global_sellers, R_total_global_sellers, gamma_global_sellers, E_global_sellers, wj_global_sellers
+    Ej_global_sellers = supply_energy_j
+    R_total_global_sellers = total_offering
+    gamma_global_sellers = gamma
+    E_global_sellers = total_supply_energy
+    wj_global_sellers = w_j_storage_factor
 
-    initial_conditions_seller = [Ej_global, R_total_global, gamma_global, E_global, wj_global]
+    initial_conditions_seller = [Ej_global_sellers, R_total_global_sellers, gamma_global_sellers, E_global_sellers, wj_global_sellers]
 
     def utility_seller(x, sign= -1):
-        x0 = x[0]  # Ej_global
-        x1 = x[1]  # R_total_global
-        x2 = x[2]  # gamma_global
-        x3 = x[3]  # E_global
-        x4 = x[4]  # wj_global
+        x0 = x[0]  # Ej_global_sellers
+        x1 = x[1]  # R_total_global_sellers
+        x2 = x[2]  # gamma_global_sellers
+        x3 = x[3]  # E_global_sellers
+        x4 = x[4]  # wj_global_sellers
 
         return sign * (1 - x2)*((1.0 + x0*(1 - x4)) + x2 * x1 * (x0 * x4) / x3)
 
     def constraint_param_seller0(x):
-        return Ej_global - x[0]
+        return Ej_global_sellers - x[0]
 
     def constraint_param_seller1(x):
-        return R_total_global - x[1]
+        return R_total_global_sellers - x[1]
 
     def constraint_param_seller2(x):
-        return gamma_global - x[2]
+        return gamma_global_sellers - x[2]
 
     def constraint_param_seller3(x):
-        return E_global - x[3]
+        return E_global_sellers - x[3]
 
     """incorporate various constraints"""
     con_seller0 = {'type': 'eq', 'fun': constraint_param_seller0}
@@ -160,10 +158,10 @@ def sellers_game_optimization(total_offering, supply_energy_j, total_supply_ener
     con_seller2 = {'type': 'eq', 'fun': constraint_param_seller2}
     con_seller3 = {'type': 'eq', 'fun': constraint_param_seller3}
     cons_seller = [con_seller0, con_seller1, con_seller2, con_seller3]
-    bounds_seller = ((0, None), (0, None), (0, None), (0,None ), (0,1))
+    bounds_seller = ((0, None), (0, None), (0, None), (0, None), (0, 1))
 
     sol_seller = minimize(utility_seller, initial_conditions_seller, method='SLSQP', bounds=bounds_seller, constraints=cons_seller)  # bounds=bounds
-    print("sellers game results in %s" % sol_seller.x)
+    print("seller %d game results in %s" % (id_seller, sol_seller.x[4]))
     return sol_seller.x[4]
     pass
 

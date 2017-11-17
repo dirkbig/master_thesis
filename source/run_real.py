@@ -1,7 +1,4 @@
-import numpy as np
-
 from source.microgrid_model import *
-
 
 """Read in actual data specific to actual agent: this is OK (using opensource data)"""
 
@@ -40,7 +37,7 @@ from source.microgrid_model import *
 
 """Test with test data: this is almost complete shit"""
 # """test - data for a typical agent"""
-# test_load = ["/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_load_1_csv.csv","/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_load_2_csv.csv","/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_noload_3_csv.csv"]
+# test_load = ["test_datafiles.test_load_2_csv.csv","/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_noload_3_csv.csv"]
 # test_production = ["/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_production_1_csv.csv", "/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_production_2_csv.csv","/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_noproduction_3_csv.csv"]
 # test_battery = "/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_battery_forall_csv.csv"
 
@@ -55,11 +52,11 @@ from source.microgrid_model import *
 #     test_battery_file_agents[testagent] = test_battery_file_agents         # read_csv(test_battery, duration) # all the same battery ""
 
 """Fake test data: this is complete shit"""
-test_load_file_agents = [[100, 101, 100, 100,100, 100, 100, 100,100,100],[50, 100, 100, 100,100, 100, 100, 100,100,100],[0,0,0,0,0,0,0,0,0,0],[50, 100, 100, 100,100, 100, 100, 100,100,100],[0,0,0,0,0,0,0,0,0,0]]
+test_load_file_agents = [[100, 100, 100, 100,100, 100, 100, 100,100,100],[70, 100, 100, 100,100, 100, 100, 100,100,100],[0,0,0,0,0,0,0,0,0,0],[50, 100, 100, 100,100, 100, 100, 100,100,100],[0,0,0,0,0,0,0,0,0,0]]
 test_production_file_agents = [[0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0],[150,150,150,150,150,150,150,150,150,150],[0,0,0,0,0,0,0,0,0,0],[150,150,150,150,150,150,150,150,150,150]]
 test_battery_file_agents = [100, 100, 100, 100,100, 100, 100, 100,100,100]
 
-big_data_file = np.zeros((duration,N,3))             # list of data_file entries per agents
+big_data_file = np.zeros((duration, N, 3))             # list of data_file entries per agents
 for i in range(duration):
     agent_file = np.zeros((N, 3))  # agent_file
     for j in range(N):
@@ -74,13 +71,9 @@ model_testrun = MicroGrid(N, big_data_file)        # create microgrid model with
 duration_test = duration
 supply_over_time_list = []
 for i in range(duration):
-    supply, buyers_pool, sellers_pool = model_testrun.step()
+    supply, buyers, sellers = model_testrun.step()
     supply_over_time_list.append(supply)
 
 supply_over_time = np.array(supply_over_time_list)
 print(supply_over_time)
-
-"""Testing"""
-# print(model_testrun.schedule.agents)
-# print(model_testrun.schedule.agents[1].Consumption)
 
