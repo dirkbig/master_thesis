@@ -1,7 +1,12 @@
+import csv
 import numpy as np
+from scipy.optimize import minimize
+import random
 
 
-a = np.array([1.2, 1.4, 1.6])
-b = np.array([1, 1, 1])
+def utility_seller(x, sign=-1):
+    return np.log(1.0 + 10 * (1 - x))
 
-print(np.subtract(a,b))
+
+sol_seller = minimize(utility_seller, initial_conditions_seller, method='SLSQP', bounds=bounds_seller,
+                      constraints=cons_seller)  # bounds=bounds

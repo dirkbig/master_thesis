@@ -53,7 +53,7 @@ from source.microgrid_model import *
 
 """Fake test data: this is complete shit"""
 test_load_file_agents = [[100, 100, 100, 100,100, 100, 100, 100,100,100],[70, 100, 100, 100,100, 100, 100, 100,100,100],[0,0,0,0,0,0,0,0,0,0],[50, 100, 100, 100,100, 100, 100, 100,100,100],[0,0,0,0,0,0,0,0,0,0],[100, 100, 100, 100,100, 100, 100, 100,100,100],[70, 100, 100, 100,100, 100, 100, 100,100,100],[0,0,0,0,0,0,0,0,0,0],[50, 100, 100, 100,100, 100, 100, 100,100,100],[0,0,0,0,0,0,0,0,0,0]]
-test_production_file_agents = [[0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0],[150,150,150,150,150,150,150,150,150,150],[0,0,0,0,0,0,0,0,0,0],[150,150,150,150,150,150,150,150,150,150],[0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0],[150,150,150,150,150,150,150,150,150,150],[0,0,0,0,0,0,0,0,0,0],[150,150,150,150,150,150,150,150,150,150]]
+test_production_file_agents = [[0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0],[150,300,150,200,150,150,150,150,150,150],[0,0,0,0,0,0,0,0,0,0],[150,150,150,150,150,150,150,150,150,150],[0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0],[150,150,150,150,150,150,150,150,150,150],[0,0,0,0,0,0,0,0,0,0],[150,150,150,150,150,150,150,150,150,150]]
 test_battery_file_agents = [100, 100, 100, 100,100, 100, 100, 100,100,100]
 
 big_data_file = np.zeros((duration, N, 3))             # list of data_file entries per agents
@@ -71,8 +71,9 @@ model_testrun = MicroGrid(N, big_data_file)        # create microgrid model with
 duration_test = duration
 supply_over_time_list = []
 for i in range(duration):
-    supply, buyers, sellers = model_testrun.step()
-    supply_over_time_list.append(supply)
+    supply_per_step, buyers, sellers = model_testrun.step()
+    print(supply_per_step)
+    supply_over_time_list.append(supply_per_step)
 
 supply_over_time = np.array(supply_over_time_list)
 print(supply_over_time)

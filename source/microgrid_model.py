@@ -4,6 +4,8 @@ import pandas as pd
 from source.function_file import *
 from source.initialization import *
 from mesa import Agent, Model
+import math
+import scipy.optimize
 
 ##############
 ### SET-UP ###
@@ -16,12 +18,12 @@ noise = np.random.normal(0, 1, 100)
 
 
 """All starting parameters are initialised"""
-duration = 1  # 1440                # Duration of the sim (one full day or 1440 time_steps of 1 minute) !!10 if test!!
-N = 8                               # N agents only
+duration = 4  # 1440                # Duration of the sim (one full day or 1440 time_steps of 1 minute) !!10 if test!!
+N = 5                               # N agents only
 step_list = np.zeros([duration])
 
 c_S = 4                                              # c_S is selling price of the microgrid
-c_B = 2                                              # c_B is buying price of the microgrid
+c_B = 1                                              # c_B is buying price of the microgrid
 c_macro = (c_B, c_S)                                 # Domain of available prices for bidding player i
 possible_c_i = range(c_macro[0], c_macro[1])         # domain of solution for bidding price c_i
 
@@ -102,9 +104,9 @@ class HouseholdAgent(Agent):
 
         """agent characteristics"""
         self.id = unique_id
-        self.battery_capacity = 10          # everyone has 10 kwh battery
-        self.pv_generation = random.uniform(0, 1)              # random.choice(range(15)) * pvgeneration
-        self.consumption = random.uniform(0, 1)                # random.choice(range(15)) * consumption
+        self.battery_capacity = 10                              # everyone has 10 kwh battery
+        self.pv_generation = random.uniform(0, 1)               # random.choice(range(15)) * pvgeneration
+        self.consumption = random.uniform(0, 1)                 # random.choice(range(15)) * consumption
         self.classification = []
 
         """control variables"""
@@ -119,7 +121,7 @@ class HouseholdAgent(Agent):
         self.w_j_storage_factor = initialize("w_j_storage_factor")
         self.E_j_supply = 0
         self.c_i_bidding_price = 0
-
+        self.stored = 0
 
         """results"""
         self.results = []
@@ -182,8 +184,15 @@ class MicroGrid(Model):
         self.w_storage_factors = np.zeros(N)
         self.R_total = 0
 
+        """Battery"""
+        self.E_total_stored = 0
+
+        """Unrelated crap"""
         self.sellers_pool = []
         self.buyers_pool = []
+
+
+
 
         """create a set of N agents with activations schedule and e = unique id"""
         for e in range(self.num_households):
@@ -239,12 +248,20 @@ class MicroGrid(Model):
                     if agent.classification == 'buyer':
                         prev_bid = agent.c_i_bidding_price
                         bidding_prices_summed = sum(self.c_bidding_prices)
-                        agent.c_i_bidding_price = buyers_game_optimization(agent.id, self.E_total_supply, c_macro, bidding_prices_summed, agent.c_i_bidding_price)
+                        agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, bidding_prices_summed)
+                        utility_i = calc_utility_function_i(self.E_total_supply, c_macro, agent.c_i_bidding_price, bidding_prices_summed)
+                        print("buyer", agent.id, "demand from macro-grid =", agent.E_i_demand - agent.E_i_allocation)
+                        print("utility buyer", agent.id, "=", utility_i)
+                        """update"""
+                        sol_buyer, sol_buyer.x[3] = buyers_game_optimization(agent.id, agent.E_i_demand, self.E_total_supply, c_macro, agent.c_i_bidding_price, bidding_prices_summed)
+                        agent.c_i_bidding_price =  sol_buyer.x[3]
                         self.c_bidding_prices[agent.id] = agent.c_i_bidding_price
                         bidding_prices_summed = sum(self.c_bidding_prices)
                         agent.E_i_allocation = allocation_to_i_func(self.E_total_supply, agent.c_i_bidding_price, bidding_prices_summed)
                         agent.payment_to_seller = agent.c_i_bidding_price * agent.E_i_allocation
                         self.R_total += agent.payment_to_seller
+                        print("buyer", agent.id, "demand from macro-grid =", agent.E_i_demand - agent.E_i_allocation)
+                        print("utility buyer", agent.id, "=", utility_i)
 
                     else:
                         self.c_bidding_prices[agent.id] = 0  # current total payment offered
@@ -261,22 +278,32 @@ class MicroGrid(Model):
             new_supply_agents = 0  # resets for every step
             old_wj_vector =  self.w_storage_factors# self.w_storage_factors
 
+            """ A diminising return function is needed. Lets make it quadratic thenn"""
             for agent in self.agents[:]:
                 if agent.classification == 'seller':
                     agent.gamma = calc_gamma()
-                    agent.w_j_storage_factor = sellers_game_optimization(agent.id, self.R_total, agent.E_j_supply, self.E_total_supply, agent.gamma, agent.w_j_storage_factor)
+
+                    sol_seller, sol_seller.x[4] = sellers_game_optimization(agent.id, self.R_total, agent.E_j_supply, self.E_total_supply, agent.gamma, agent.w_j_storage_factor)
+
+                    # guessvalue = 0.5
+                    # fsolve_sellers = scipy.optimize.fsolve(lambda x: (1 + agent.E_j_supply * (1 - x) + self.R_total * (agent.E_j_supply * x / self.E_total_supply)), guessvalue)[0]  # 5 is guess value
+                    # print('fsolve_sellers', fsolve_sellers)
+
+                    agent.w_j_storage_factor = sol_seller.x[4]
                     self.w_storage_factors[agent.id] = agent.w_j_storage_factor
                     new_supply_agents += calc_supply(agent.pv_generation, agent.w_j_storage_factor)
+                    utility_j = calc_utility_function_j(agent.id, self.R_total, agent.E_j_supply, agent.w_j_storage_factor, self.E_total_supply)
+                    print("utility of seller", agent.id, "=", utility_j)
+
             new_wj_vector = self.w_storage_factors
-
             tolerance_global = abs(max(np.subtract(new_wj_vector, old_wj_vector)))
-
             self.E_total_supply = new_supply_agents
 
         for agent in self.agents[:]:
             """Battery capacity after step, coded regardless of classification"""
             load_covering = 0  # how much of stored energy is needed to cover total load, difficult!
-            agent.available_storage += agent.E_j_surplus*(1 - agent.w_j_storage_factor) + agent.E_i_allocation - (agent.E_j_surplus*agent.w_j_storage_factor + load_covering)
+            agent.stored += agent.E_j_surplus * (1 - agent.w_j_storage_factor) + agent.E_i_allocation - (agent.E_j_surplus*agent.w_j_storage_factor + load_covering)
+            self.E_total_stored += agent.stored
 
         """ Update time """
         self.steps += 1
