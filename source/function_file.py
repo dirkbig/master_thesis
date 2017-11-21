@@ -109,6 +109,7 @@ def buyers_game_optimization(id_buyer, supply_on_step, c_macro, bidding_prices_a
     sol_buyer = minimize(utility_buyer, initial_conditions, method='SLSQP', bounds=bounds_buyer, constraints=cons)
     # print("optimization result is a bidding price of %f" % sol.x[3])
     print("buyer %d game results in %s" % (id_buyer, sol_buyer.x[3]))
+
     """return 4th element of solution vector."""
     return sol_buyer.x[3]
 
@@ -162,6 +163,8 @@ def sellers_game_optimization(id_seller, total_offering, supply_energy_j, total_
 
     sol_seller = minimize(utility_seller, initial_conditions_seller, method='SLSQP', bounds=bounds_seller, constraints=cons_seller)  # bounds=bounds
     print("seller %d game results in %s" % (id_seller, sol_seller.x[4]))
+
+    """return 5th element of solution vector."""
     return sol_seller.x[4]
     pass
 

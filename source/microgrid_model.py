@@ -17,7 +17,7 @@ noise = np.random.normal(0, 1, 100)
 
 """All starting parameters are initialised"""
 duration = 1  # 1440                # Duration of the sim (one full day or 1440 time_steps of 1 minute) !!10 if test!!
-N = 5                               # N agents only
+N = 8                               # N agents only
 step_list = np.zeros([duration])
 
 c_S = 4                                              # c_S is selling price of the microgrid
@@ -116,7 +116,7 @@ class HouseholdAgent(Agent):
         self.stored_energy = initialize("stored_energy")                # both
         self.available_storage = initialize("available_storage")        # both
         self.payment_to_seller = initialize("payment_to_seller")        # buyer
-        self.w_j_storage_factor = 0
+        self.w_j_storage_factor = initialize("w_j_storage_factor")
         self.E_j_supply = 0
         self.c_i_bidding_price = 0
 
@@ -132,38 +132,31 @@ class HouseholdAgent(Agent):
         self.battery_capacity = big_data_file_per_step[self.id, 2]      # maximum amount
         self.available_storage = self.battery_capacity + self.stored_energy - self.used_energy
         """define buyers/sellers classification"""
-        pool = define_pool(self.consumption, self.pv_generation)
-        self.classification = pool[0]
+        [classification, surplus_agent, demand_agent] = define_pool(self.consumption, self.pv_generation)
+        self.classification = classification
 
         """Define players pool and let agents act accordingly"""
-        if self.classification == "buyer":
+        if self.classification == 'buyer':
             """buyers game init"""
+            self.E_i_demand = demand_agent
+            self.c_i_bidding_price = random.uniform(min(c_macro), max(c_macro))
             print("Household %d says: I am a %s" % (self.id, self.classification))
-            self.classification = ['buyer']
-            self.E_i_demand = pool[2]
-            # # values for sellers are set to zero
-            # self.E_j_surplus = 0
-            # self.w_j_storage_factor = 0
-            # self.gamma = 0
-        elif self.classification == "seller":
+            """values for sellers are set to zero"""
+            self.E_j_surplus = 0
+            self.w_j_storage_factor = 0
+            self.gamma = 0
+        elif self.classification == 'seller':
             """sellers game init"""
+            self.E_j_surplus = surplus_agent
+            self.E_j_supply = calc_supply(surplus_agent, self.w_j_storage_factor)  # pool contains classification and E_j_surplus Ej per agents in this round
             print("Household %d says: I am a %s" % (self.id, self.classification))
-            self.classification = ['seller']
-            self.w_j_storage_factor = 0.5
-            self.E_j_surplus = pool[1]
-            self.E_j_supply = calc_supply(pool[1], self.w_j_storage_factor)  # pool contains classification and E_j_surplus Ej per agents in this round
+            """values for seller are set to zero"""
             self.c_i_bidding_price = 0
-            # # values for buyers are set to zero
-            # self.E_i_demand = 0
-            # self.E_i_allocation = 0
+            self.E_i_demand = 0
+            self.E_i_allocation = 0
             self.payment_to_seller = 0
-        return self.E_j_surplus, self.classification, self.c_i_bidding_price
+        return
 
-    # def update_game_variables(self, variable):
-    #     if self.classification == 'buyer':
-    #         self.c_i_bidding_price = variable
-    #     elif self.classification == 'seller':
-    #         self.w_j_storage_factor = variable
 
     def __repr__(self):
         return "ID: %d, batterycapacity:%d, pvgeneration:%d, consumption:%d" % (self.id, self.battery_capacity, self.pv_generation, self.consumption)
@@ -184,10 +177,13 @@ class MicroGrid(Model):
         self.big_data_file = big_data_file
         self.agents = []
         self.E_total_supply = 0
-        self.c_bidding_prices = np.ones(N)
+        self.c_bidding_prices = np.zeros(N)
         self.c_nominal = 0
-        self.list_of_wj = np.zeros(N)
+        self.w_storage_factors = np.zeros(N)
         self.R_total = 0
+
+        self.sellers_pool = []
+        self.buyers_pool = []
 
         """create a set of N agents with activations schedule and e = unique id"""
         for e in range(self.num_households):
@@ -203,96 +199,77 @@ class MicroGrid(Model):
         self.E_total_supply = 0
 
         """Take initial """
-        agent_surplus = 0
         for agent in self.agents[:]:
-            return_agent_step = agent.step(self.big_data_file[self.steps])         # returns self.supply, self.classification, self.c_i_bidding_price
-            classification = return_agent_step[1]
-            # self.c_bidding_prices += agent.c_i_bidding_price                     # current total payment offered
-            if classification == ['buyer']:
+            agent.step(self.big_data_file[self.steps])
+            classification = agent.classification
+            if classification == 'buyer':
                 """Level 1 init game among buyers"""
                 self.buyers_pool.append(agent.id)
-                agent.c_i_bidding_price = random.uniform(min(c_macro), max(c_macro))
+                self.c_bidding_prices[agent.id] = agent.c_i_bidding_price
                 agent.w_j_storage_factor = 0
-                # agent.update_game_variables(agent.c_i_bidding_price)  # update variable in agent.self
-                # number_buyers = len(buyers_pool)
-                # print("added to buyers pool")
-            elif classification == ['seller']:
+            elif classification == 'seller':
                 """Level 2 init of game of sellers"""
                 self.sellers_pool.append(agent.id)
-                agent_surplus = return_agent_step[0]
-                self.E_total_supply += agent_surplus * agent.w_j_storage_factor  # initial E_total_supply
-                agent.w_j_storage_factor = initialize("w_j_storage_factor")
-                self.list_of_wj[agent.id] = agent.w_j_storage_factor
-                # print(self.list_of_wj)
-                # agent.update_game_variables(agent.w_j_storage_factor) # update variable in agent.self
-                # number_sellers = len(sellers_pool)
-                # print("added to sellers pool")
+                self.w_storage_factors[agent.id] = agent.w_j_storage_factor
+                self.E_total_supply += agent.E_j_surplus * agent.w_j_storage_factor
+
+        # print(self.buyers_pool, self.sellers_pool)
 
         """Optimization after division of players into pools"""
         tolerance_global = 1
         tolerance_buyers = 1
-        iteration = 0
+        iteration_global = 0
+        iteration_buyers = 0
+        self.c_nominal = 0
+        self.R_total = 0  # resets for every step
+
         """Global optimization"""
-        while abs(tolerance_global) > 0.00001:
-            self.c_nominal = 0
+        while abs(tolerance_global) > 0.001:
+            iteration_global += 1
             """Buyers level optimization"""
-            while abs(tolerance_buyers) > 0.00001:
-                iteration += 1
-                print(iteration)
-                self.R_total = 0  # resets for every step
+            while abs(tolerance_buyers) > 0.001:
+                iteration_buyers += 1
                 prev_nominal_price = self.c_nominal
+                """agent.c_i_bidding_price should incorporate its E_i_demand. If allocation is lower than the actual E_i_demand, payment to macro-grid 
+                (which will be more expensive than buying from Alice) needs to be minimised. 
+                Utility of buyer should be: (total energy demand - the part allocated from alice(c_i) ) * c_macro
+                then allocation will be increased by offering more money"""
 
                 for agent in self.agents[:]:
-                    if agent.classification == ['buyer']:
+                    if agent.classification == 'buyer':
                         prev_bid = agent.c_i_bidding_price
                         bidding_prices_summed = sum(self.c_bidding_prices)
-                        agent.c_i_bidding_price = buyers_game_optimization(agent.id, self.E_total_supply, c_macro, bidding_prices_summed, agent.c_i_bidding_price)  # E_total_supply, c_macro, bidding_prices_all, bidding_price_i_prev
-
-                        """agent.c_i_bidding_price should incoorporate its E_i_demand. If allocation is lower than the actual E_i_demand, payment to macro-grid 
-                        (which will be more expensive than buying from Alice) needs to be minimised. 
-                        Utility of buyer should be: (total energy demand - the part allocated from alice(c_i) ) * c_macrogrid
-                        then allocation will be increased by offering more money"""
-
-                        self.c_bidding_prices[agent.id] = agent.c_i_bidding_price  # current total payment offered
-                        # tolerance_buyer = prev_bid - agent.c_i_bidding_price
-                        # print(self.c_bidding_prices)
+                        agent.c_i_bidding_price = buyers_game_optimization(agent.id, self.E_total_supply, c_macro, bidding_prices_summed, agent.c_i_bidding_price)
+                        self.c_bidding_prices[agent.id] = agent.c_i_bidding_price
                         bidding_prices_summed = sum(self.c_bidding_prices)
                         agent.E_i_allocation = allocation_to_i_func(self.E_total_supply, agent.c_i_bidding_price, bidding_prices_summed)
                         agent.payment_to_seller = agent.c_i_bidding_price * agent.E_i_allocation
-                        self.R_total += agent.payment_to_seller  # total sum of Ei*ci over all buyers
+                        self.R_total += agent.payment_to_seller
 
                     else:
-                        #     """if seller, make all buyer variables zero"""
-                        #     sellers_pool.append([agent.id, agent.w_j_storage_factor])
-                        #     agent.total_bid = 0
                         self.c_bidding_prices[agent.id] = 0  # current total payment offered
 
-                    #     agent.E_i_demand = 0
                 self.c_nominal = sum(self.c_bidding_prices, 0) / len(self.buyers_pool)
-                # print("this", self.c_nominal, len(self.buyers_pool))
                 tolerance_buyers = prev_nominal_price - self.c_nominal
 
+            """sellers-level game optimization"""
             """Sellers optimization game, plugging in bidding price to decide on sharing factor.
                 Is bidding price lower than that the smart-meter expects to sell on a later time period?
                 smart-meter needs a prediction on the coming day. Either use the load data or make a predicted model on 
                 all aggregated load data"""
 
             new_supply_agents = 0  # resets for every step
-            old_wj_vector =  self.list_of_wj# self.list_of_wj
+            old_wj_vector =  self.w_storage_factors# self.w_storage_factors
+
             for agent in self.agents[:]:
-                if agent.classification == ['seller']:
+                if agent.classification == 'seller':
                     agent.gamma = calc_gamma()
                     agent.w_j_storage_factor = sellers_game_optimization(agent.id, self.R_total, agent.E_j_supply, self.E_total_supply, agent.gamma, agent.w_j_storage_factor)
-                    self.list_of_wj[agent.id] = agent.w_j_storage_factor
+                    self.w_storage_factors[agent.id] = agent.w_j_storage_factor
                     new_supply_agents += calc_supply(agent.pv_generation, agent.w_j_storage_factor)
-                new_wj_vector = self.list_of_wj
+            new_wj_vector = self.w_storage_factors
 
-                # else:
-                #     """if buyer, make all seller variables zero"""
-                #     # agent.w_j_storage_factor = 0
-                #     # agent.E_j_surplus = 0
             tolerance_global = abs(max(np.subtract(new_wj_vector, old_wj_vector)))
-
 
             self.E_total_supply = new_supply_agents
 

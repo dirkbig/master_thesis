@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="a96bafba-befd-42dd-bce8-d734f18e48e3" name="Default" comment="">
+<<<<<<< HEAD
       <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/microgrid_new.py" />
       <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/source/initialization.py" />
       <change type="DELETED" beforePath="$PROJECT_DIR$/household_char.xlsx" afterPath="" />
@@ -17,6 +18,9 @@
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/source/microgrid_model.py" afterPath="$PROJECT_DIR$/source/microgrid_model.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/source/run_real.py" afterPath="$PROJECT_DIR$/source/run_real.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test.py" afterPath="$PROJECT_DIR$/test.py" />
+=======
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/run_test.py" afterPath="$PROJECT_DIR$/run_test.py" />
+>>>>>>> master
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -69,8 +73,13 @@
       <file leaf-file-name="microgrid_new.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/microgrid_new.py">
           <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
             <state relative-caret-position="255">
               <caret line="17" column="0" lean-forward="false" selection-start-line="17" selection-start-column="0" selection-end-line="17" selection-end-column="0" />
+=======
+            <state relative-caret-position="619">
+              <caret line="140" column="35" lean-forward="false" selection-start-line="140" selection-start-column="35" selection-end-line="140" selection-end-column="35" />
+>>>>>>> master
               <folding>
                 <element signature="e#0#33#0" expanded="true" />
               </folding>
@@ -168,12 +177,16 @@
         <option value="$PROJECT_DIR$/source_dirk/__init__.py" />
         <option value="$PROJECT_DIR$/__init__.py" />
         <option value="$PROJECT_DIR$/run_real.py" />
+<<<<<<< HEAD
         <option value="$PROJECT_DIR$/source/run_real.py" />
         <option value="$PROJECT_DIR$/test.py" />
         <option value="$PROJECT_DIR$/microgrid_new.py" />
         <option value="$PROJECT_DIR$/source/initialization.py" />
         <option value="$PROJECT_DIR$/source/function_file.py" />
         <option value="$PROJECT_DIR$/source/microgrid_model.py" />
+=======
+        <option value="$PROJECT_DIR$/run_test.py" />
+>>>>>>> master
       </list>
     </option>
   </component>
@@ -717,8 +730,13 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/microgrid_new.py">
       <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
         <state relative-caret-position="255">
           <caret line="17" column="0" lean-forward="false" selection-start-line="17" selection-start-column="0" selection-end-line="17" selection-end-column="0" />
+=======
+        <state relative-caret-position="619">
+          <caret line="140" column="35" lean-forward="false" selection-start-line="140" selection-start-column="35" selection-end-line="140" selection-end-column="35" />
+>>>>>>> master
           <folding>
             <element signature="e#0#33#0" expanded="true" />
           </folding>
