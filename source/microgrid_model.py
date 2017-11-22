@@ -18,7 +18,7 @@ noise = np.random.normal(0, 1, 100)
 
 
 """All starting parameters are initialised"""
-duration = 1  # 1440                # Duration of the sim (one full day or 1440 time_steps of 1 minute) !!10 if test!!
+duration = 2  # 1440                # Duration of the sim (one full day or 1440 time_steps of 1 minute) !!10 if test!!
 N = 5                               # N agents only
 step_list = np.zeros([duration])
 
@@ -123,9 +123,11 @@ class HouseholdAgent(Agent):
         self.c_i_bidding_price = 0
         self.stored = 0
         self.bidding_prices_summed = 0
-
+        self.E_others_supply = 0
         """results"""
         self.results = []
+        self.tolerance_seller = 1
+        self.tolerance_buyer = 1
 
     def step(self, big_data_file_per_step):
         """Agent optimization step, what ever specific agents do on during step"""
@@ -187,9 +189,12 @@ class MicroGrid(Model):
         """Battery"""
         self.E_total_stored = 0
         self.E_total_surplus = 0
-        """Unrelated crap"""
+        """Unrelated"""
         self.sellers_pool = []
         self.buyers_pool = []
+        """Two pool prediction defining future load and supply"""
+        self.R_prediction = []
+        self.E_prediction = []
 
 
         """create a set of N agents with activations schedule and e = unique id"""
@@ -220,6 +225,10 @@ class MicroGrid(Model):
                 self.w_storage_factors[agent.id] = agent.w_j_storage_factor
                 self.E_total_supply += agent.E_j_surplus * agent.w_j_storage_factor
 
+        for agent in self.agents[:]:
+            agent.E_others_supply = self.E_total_supply - ( agent.E_j_surplus * agent.w_j_storage_factor )
+
+
         """Optimization after division of players into pools"""
         tolerance_global = 1
         tolerance_buyers = 1
@@ -229,10 +238,10 @@ class MicroGrid(Model):
         self.R_total = 0  # resets for every step
 
         """Global optimization"""
-        while abs(tolerance_global) > 0.001:
+        while True:
             iteration_global += 1
             """Buyers level optimization"""
-            while abs(tolerance_buyers) > 0.001:
+            while True:
                 iteration_buyers += 1
                 prev_nominal_price = self.c_nominal
                 """agent.c_i_bidding_price should incorporate its E_i_demand. If allocation is lower than the actual E_i_demand, payment to macro-grid 
@@ -263,39 +272,108 @@ class MicroGrid(Model):
                     else:
                         self.c_bidding_prices[agent.id] = 0  # current total payment offered
 
+                if abs(tolerance_buyers) > 0.00001:
+                    print("optimization of sellers-level game %d has been completed!" % self.steps)
+                    break
+                else:
+                    pass
+
+                """ Nominal price to be presented to sellers"""
                 self.c_nominal = sum(self.c_bidding_prices, 0) / len(self.buyers_pool)
                 tolerance_buyers = prev_nominal_price - self.c_nominal
-
-            """sellers-level game optimization"""
-            """Sellers optimization game, plugging in bidding price to decide on sharing factor.
-                Is bidding price lower than that the smart-meter expects to sell on a later time period?
-                smart-meter needs a prediction on the coming day. Either use the load data or make a predicted model on 
-                all aggregated load data"""
 
             new_supply_agents = 0  # resets for every step
             old_wj_vector =  self.w_storage_factors# self.w_storage_factors
 
-            """ A diminising return function is needed. Lets make it quadratic thenn"""
-            for agent in self.agents[:]:
-                if agent.classification == 'seller':
-                    agent.gamma = calc_gamma()
+            """create horizon"""
+            surplus_per_step_prediction = np.zeros(duration)
+            demand_per_step_prediction = np.zeros(duration)
 
-                    sol_seller, sol_seller.x[4] = sellers_game_optimization(agent.id, self.R_total, agent.E_j_supply, self.E_total_supply, agent.gamma, agent.w_j_storage_factor)
+            print(self.agents)
+            for i in range(duration):
+                for agent in self.agents[:]:
+                    energy_per_step_per_agent_prediction = self.big_data_file[i][agent.id][0] - self.big_data_file[i][agent.id][1]         # [0] = load, corresponds with demand  - [1] = production
 
-                    # guessvalue = 0.5
-                    # fsolve_sellers = scipy.optimize.fsolve(lambda x: (1 + agent.E_j_supply * (1 - x) + self.R_total * (agent.E_j_supply * x / self.E_total_supply)), guessvalue)[0]  # 5 is guess value
-                    # print('fsolve_sellers', fsolve_sellers)
+                    if energy_per_step_per_agent_prediction <= 0:
+                        demand_per_step_prediction[i] += abs(energy_per_step_per_agent_prediction)
 
-                    agent.w_j_storage_factor = sol_seller.x[4]
-                    self.w_storage_factors[agent.id] = agent.w_j_storage_factor
-                    new_supply_agents += calc_supply(agent.pv_generation, agent.w_j_storage_factor)
-                    utility_j = calc_utility_function_j(agent.id, self.R_total, agent.E_j_supply, agent.w_j_storage_factor, self.E_total_supply)
-                    print("utility of seller", agent.id, "=", utility_j)
+                    if energy_per_step_per_agent_prediction < 0:
+                        surplus_per_step_prediction[i] += abs(energy_per_step_per_agent_prediction)
+
+            print(demand_per_step_prediction)  # elements in list represent total demand in the system for 1 step
+            print(surplus_per_step_prediction) #
+
+
+            """ for now this is the prediction """
+            self.R_prediction = demand_per_step_prediction[self.steps + 1] * self.c_nominal
+            self.E_prediction = surplus_per_step_prediction[self.steps + 1]
+
+
+            # i is range (out of duration), j is agents
+            # big_data_file[1][j][0] = test_load_file_agents[j][i]  # *(random.uniform(0.9, 1.2))
+            # big_data_file[1][j][1] = test_production_file_agents[j][i]  # *(random.uniform(0.9, 1.2))
+
+            tolerance_sellers = 1
+            """sellers-level game optimization"""
+            while True:
+                for agent in self.agents[:]:
+                    if agent.classification == 'seller':
+                        """Sellers optimization game, plugging in bidding price to decide on sharing factor.
+                        Is bidding price lower than that the smart-meter expects to sell on a later time period?
+                        smart-meter needs a prediction on the coming day. Either use the load data or make a predicted model on 
+                        all aggregated load data"""
+                        prev_wj = agent.w_j_storage_factor
+                        agent.bidding_prices_summed = sum(self.c_bidding_prices) - agent.c_i_bidding_price
+                        agent.E_others_supply = self.E_total_supply - (agent.E_j_surplus * agent.w_j_storage_factor)
+
+                        sol_seller, sol_seller.x[5] = sellers_game_optimization(agent.id, agent.E_j_surplus, self.R_total, agent.E_others_supply, self.R_prediction, self.E_prediction, agent.w_j_storage_factor)
+                        agent.w_j_storage_factor = sol_seller.x[5]
+
+                        difference_rev = self.R_total - self.R_prediction
+                        difference_load = self.E_total_supply - self.E_prediction
+                        print("diff in revenue =", difference_rev, "diff in load =", difference_load)
+
+                        prediction_utility = self.R_prediction * (agent.E_j_surplus * (1 - agent.w_j_storage_factor) / (self.E_prediction + agent.E_j_surplus * (1 - agent.w_j_storage_factor)))
+                        direct_utility = self.R_total * (agent.E_j_surplus * agent.w_j_storage_factor / (self.E_total_supply + (agent.E_j_surplus * agent.w_j_storage_factor)))
+                        print("prediction_utility =", prediction_utility, "direct_utility =", direct_utility)
+                        new_wj = agent.w_j_storage_factor
+                        agent.tolerance_seller = abs(new_wj - prev_wj)
+
+                        # id_seller, E_j_seller, R_total_revenue, E_total_sellers, R_prediction, E_prediction, w_j_storage_factor)
+                        # guessvalue = 0.5
+                        # fsolve_sellers = scipy.optimize.fsolve(lambda x: (1 + agent.E_j_surplus * (1 - x) + self.R_total * (agent.E_j_surplus * x / self.E_total_supply)), guessvalue)[0]  # 5 is guess value
+                        # print('fsolve_sellers', fsolve_sellers)
+
+                        self.w_storage_factors[agent.id] = agent.w_j_storage_factor
+                        new_supply_agents += calc_supply(agent.pv_generation, agent.w_j_storage_factor)
+                        utility_j = calc_utility_function_j(agent.id, agent.E_j_surplus, self.R_total, self.E_total_supply, self.R_prediction, self.E_prediction, agent.w_j_storage_factor)
+                        print("utility of seller", agent.id, "=", utility_j)
+                    tolerance_sellers = abs(max(np.subtract(self.w_storage_factors, old_wj_vector)))
+
+                if abs(tolerance_sellers) > 0.00001:
+                    print("optimization of sellers-level game %d has been completed!" % self.steps)
+                    break
+                else:
+                    pass
 
             new_wj_vector = self.w_storage_factors
             tolerance_global = abs(max(np.subtract(new_wj_vector, old_wj_vector)))
             self.E_total_supply = new_supply_agents
 
+            if abs(tolerance_global) > 0.00001 or iteration_global > 5:
+                print("optimization of round %d has been completed!" % self.steps)
+                break
+            else:
+                pass
+
+
+
+
+
+
+
+
+        """ This is still vague """
         for agent in self.agents[:]:
             """Battery capacity after step, coded regardless of classification"""
             load_covering = 0  # how much of stored energy is needed to cover total load, difficult!

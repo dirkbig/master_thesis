@@ -51,16 +51,20 @@ def calc_R_j_revenue(R_total, E_j_supply, w_j_storage_factor, E_total_supply):
 def calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bidding_prices_summed):
     """This function calculates buyers utility"""
     E_i_allocation = allocation_i(E_total_supply, c_i_bidding_price, c_bidding_prices_summed)
-    utility_i = (E_i_demand - (E_total_supply * (c_i_bidding_price/c_bidding_prices_summed)))**2 + (E_total_supply * (c_i_bidding_price**2/c_bidding_prices_summed))
+    utility_i = (E_i_demand - (E_total_supply * (c_i_bidding_price/c_bidding_prices_summed)))**1.7 + (E_total_supply * (c_i_bidding_price**2/c_bidding_prices_summed))
     demand_gap = E_i_demand - E_i_allocation
     return utility_i, demand_gap
 
 
-def calc_utility_function_j(id, R_total, E_j_supply, w_j_storage_factor, E_total_supply):
+def calc_utility_function_j(id, E_j_supply, R_total, E_total_supply, R_prediction, E_prediction, w_j_storage_factor):
     """This function calculates sellers utility"""
-    R_j_revenue = calc_R_j_revenue(R_total, E_j_supply, w_j_storage_factor, E_total_supply)
-    utility_j = E_j_supply*(1 - w_j_storage_factor) + R_j_revenue  # utility of selling agent j
-    return utility_j
+    prediction_utility = R_prediction * (E_j_supply * (1 - w_j_storage_factor) / (E_prediction + E_j_supply * (1 - w_j_storage_factor)))
+    direct_utility = R_total * (E_j_supply * w_j_storage_factor / (E_total_supply + (E_j_supply * w_j_storage_factor)))
+    return prediction_utility + direct_utility
+
+    # R_j_revenue = calc_R_j_revenue(R_total, E_j_supply, w_j_storage_factor, E_total_supply)
+    # utility_j = E_j_supply*(1 - w_j_storage_factor) + R_j_revenue  # utility of selling agent j
+    # return utility_j
 
 
 def allocation_i(E_total_supply,c_i_bidding_price, c_bidding_prices_summed):
@@ -88,16 +92,23 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
     c_i_global_buyers = bidding_price_i_prev
     E_i_demand_global = E_i_demand
 
-    initial_conditions = [E_global_buyers, E_i_demand_global, c_l_global_buyers, c_i_global_buyers]
 
+    """ Buyers prediction model for defining penalty on gap between demand and allocation,
+        depending on future prediction and availability of locally stored energy"""
+    alpha = 1 # for now, alpha is just 1
+
+    initial_conditions = [E_global_buyers, E_i_demand_global, c_l_global_buyers, c_i_global_buyers, alpha]
+
+    """ This is a MINIMIZATION of revenue"""
     def utility_buyer(x):
-        x0 = x[0]   # E_global_buyers
-        x1 = x[1]   # E_i_demand_buyers_global
-        x2 = x[2]   # c_l_global_buyers
-        x3 = x[3]   # c_i_global_buyers               unconstrained
+        x0 = x[0]       # E_global_buyers
+        x1 = x[1]       # E_i_demand_buyers_global
+        x2 = x[2]       # c_l_global_buyers
+        x3 = x[3]       # c_i_global_buyers               unconstrained
+        alpha = x[4]    # prediction weight
 
         """self designed parametric utility function"""
-        return  (x1 -  (x0 * (x3/(x2 + x3))))**1.7 + x0 * (x3/(x2 + x3)) * x3
+        return alpha * (x1 -  (x0 * (x3/(x2 + x3))))**1.7 + x0 * (x3/(x2 + x3)) * x3
 
         # """self designed parametric utility function"""
         # # return x4 * x1 - (x0 * (x3 / x2)) * x3 + (x4 - (x0 * (x3 / x2))) * x1
@@ -115,13 +126,18 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
     def constraint_param_x2(x):
         return c_l_global_buyers - x[2]
 
+    def constraint_param_x4(x):
+        return alpha - x[4]
+
     """incorporate various constraints"""
     con0 = {'type': 'eq', 'fun': constraint_param_x0}
     con1 = {'type': 'eq', 'fun': constraint_param_x1}
     con2 = {'type': 'eq', 'fun': constraint_param_x2}
+    con4 = {'type': 'eq', 'fun': constraint_param_x4}
 
-    cons = [con0, con1, con2]
-    bounds_buyer = ( (0, None), (0, None), (0, None), (0, None) )
+
+    cons = [con0, con1, con2, con4]
+    bounds_buyer = ( (0, None), (0, None), (0, None), (0, None), (0, None) )
 
     """optimize using SLSQP(?)"""
     sol_buyer = minimize(utility_buyer, initial_conditions, method='SLSQP', bounds=bounds_buyer, constraints=cons)
@@ -132,26 +148,37 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
     return sol_buyer, sol_buyer.x[3]
 
 
-def sellers_game_optimization(id_seller, total_offering, supply_energy_j, total_supply_energy, gamma, w_j_storage_factor):
+def sellers_game_optimization(id_seller, E_j_seller, R_total, E_total_supply, R_prediction, E_prediction, w_j_storage_factor):
     """ Anticipation on buyers is plugged in here"""
-    gamma = 1
-    global Ej_global_sellers, R_total_global_sellers, gamma_global_sellers, E_global_sellers, wj_global_sellers
-    Ej_global_sellers = supply_energy_j
-    R_total_global_sellers = total_offering
-    gamma_global_sellers = gamma
-    E_global_sellers = total_supply_energy
+
+    global Ej_global_sellers, R_total_global_sellers, E_global_sellers, R_prediction_global, E_prediction_global, wj_global_sellers
+
+    Ej_global_sellers = E_j_seller
+    R_total_global_sellers = R_total
+    E_global_sellers = E_total_supply
+    R_prediction_global = R_prediction
+    E_prediction_global = E_prediction
     wj_global_sellers = w_j_storage_factor
 
-    initial_conditions_seller = [Ej_global_sellers, R_total_global_sellers, gamma_global_sellers, E_global_sellers, wj_global_sellers]
+    initial_conditions_seller = [Ej_global_sellers, R_total_global_sellers, E_global_sellers, R_prediction_global, E_prediction_global, wj_global_sellers]
 
+    """ This is a MAXIMIZATION of revenue"""
     def utility_seller(x, sign= -1):
-        x0 = x[0]  # Ej_global_sellers
-        x1 = x[1]  # R_total_global_sellers
-        x2 = x[2]  # gamma_global_sellers
-        x3 = x[3]  # E_global_sellers
-        x4 = x[4]  # wj_global_sellers
 
-        return sign * x0 * (1 - x4**(1.7)) + x2 * x1 * ((x0 * x4) / x3)
+        Ej = x[0]   # Ej_global_sellers
+        Rd = x[1]   # R_total_global_sellers
+        E  = x[2]   # E_global_sellers
+        Rp = x[3]   # R_prediction_global
+        Ep = x[4]   # E_prediction_global
+
+        wj = x[5]  # wj_global_sellers       unconstrained
+
+
+        """New Utility"""
+        return sign * ( (Rp * (Ej * (1-wj)/ (Ep + Ej * (1 - wj))))**2 + (Rd * ( Ej * wj / (E + (Ej * wj))))**2)  # E must be made as " everything except j"
+
+        """old utility"""
+        # return sign * x0 *(1 - x4) + x2 * x1 * ((x0 * x4) / x3)
 
     def constraint_param_seller0(x):
         return Ej_global_sellers - x[0]
@@ -160,24 +187,33 @@ def sellers_game_optimization(id_seller, total_offering, supply_energy_j, total_
         return R_total_global_sellers - x[1]
 
     def constraint_param_seller2(x):
-        return gamma_global_sellers - x[2]
+        return E_global_sellers - x[2]
 
     def constraint_param_seller3(x):
-        return E_global_sellers - x[3]
+        return R_prediction_global - x[3]
+
+    def constraint_param_seller4(x):
+        return E_prediction_global - x[4]
+
+    def constraint_minimum_load():
+        """here goes constraints that involve minima/maxima on what-ever the consumer definitely needs"""
+        pass
 
     """incorporate various constraints"""
     con_seller0 = {'type': 'eq', 'fun': constraint_param_seller0}
     con_seller1 = {'type': 'eq', 'fun': constraint_param_seller1}
     con_seller2 = {'type': 'eq', 'fun': constraint_param_seller2}
     con_seller3 = {'type': 'eq', 'fun': constraint_param_seller3}
-    cons_seller = [con_seller0, con_seller1, con_seller2, con_seller3]
-    bounds_seller = ((0, None), (0, None), (0, None), (0, None), (0, 1))
+    con_seller4 = {'type': 'eq', 'fun': constraint_param_seller4}
+
+    cons_seller = [con_seller0, con_seller1, con_seller2, con_seller3, con_seller4]
+    bounds_seller = ((0, None), (0, None), (0, None), (0, None), (0, None), (0.001, 0.999))
 
     sol_seller = minimize(utility_seller, initial_conditions_seller, method='SLSQP', bounds=bounds_seller, constraints=cons_seller)  # bounds=bounds
-    print("seller %d game results in %s" % (id_seller, sol_seller.x[4]))
+    print("seller %d game results in %s" % (id_seller, sol_seller.x[5]))
 
     """return 5th element of solution vector."""
-    return sol_seller, sol_seller.x[4]
+    return sol_seller, sol_seller.x[5]
     pass
 
 
