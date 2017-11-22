@@ -48,11 +48,12 @@ def calc_R_j_revenue(R_total, E_j_supply, w_j_storage_factor, E_total_supply):
     return R_j
 
 
-def calc_utility_function_i(supply_on_step, c_macro, bidding_price_i, bidding_prices_summed):
+def calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bidding_prices_summed):
     """This function calculates buyers utility"""
-    E_i_allocation = allocation_i(supply_on_step,bidding_price_i, bidding_prices_summed)
-    utility_i = E_i_allocation * (c_macro[1] - bidding_price_i)
-    return utility_i
+    E_i_allocation = allocation_i(E_total_supply, c_i_bidding_price, c_bidding_prices_summed)
+    utility_i = (E_i_demand - (E_total_supply * (c_i_bidding_price/c_bidding_prices_summed)))**2 + (E_total_supply * (c_i_bidding_price**2/c_bidding_prices_summed))
+    demand_gap = E_i_demand - E_i_allocation
+    return utility_i, demand_gap
 
 
 def calc_utility_function_j(id, R_total, E_j_supply, w_j_storage_factor, E_total_supply):
@@ -62,8 +63,8 @@ def calc_utility_function_j(id, R_total, E_j_supply, w_j_storage_factor, E_total
     return utility_j
 
 
-def allocation_i(supply_on_step,bidding_price_i, bidding_prices_all):
-    E_i_allocation = supply_on_step * (bidding_price_i / bidding_prices_all)
+def allocation_i(E_total_supply,c_i_bidding_price, c_bidding_prices_summed):
+    E_i_allocation = E_total_supply * (c_i_bidding_price / c_bidding_prices_summed)
     return E_i_allocation
 
 
@@ -85,45 +86,42 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
     c_S_global_buyers = c_macro[1]
     c_l_global_buyers = bidding_prices_all
     c_i_global_buyers = bidding_price_i_prev
-    E_i_demand_buyers_global = E_i_demand
+    E_i_demand_global = E_i_demand
 
-    initial_conditions = [E_global_buyers, c_S_global_buyers, c_l_global_buyers, c_i_global_buyers, E_i_demand_buyers_global]
+    initial_conditions = [E_global_buyers, E_i_demand_global, c_l_global_buyers, c_i_global_buyers]
 
-    def utility_buyer(x, sign=-1):
+    def utility_buyer(x):
         x0 = x[0]   # E_global_buyers
-        x1 = x[1]   # c_S_global_buyers
+        x1 = x[1]   # E_i_demand_buyers_global
         x2 = x[2]   # c_l_global_buyers
         x3 = x[3]   # c_i_global_buyers               unconstrained
-        x4 = x[4]   # E_i_demand_buyers_global
 
         """self designed parametric utility function"""
-        return x4 * x1 - (x0 * (x3 / x2)) * x3 + (x4 - (x0 * (x3 / x2))) * x1
+        return  (x1 -  (x0 * (x3/(x2 + x3))))**1.7 + x0 * (x3/(x2 + x3)) * x3
 
-        """original utility function, minimizes """
-        # return sign*x0*(x3/x2)*x1 - x0*(x3/x2)*x3
+        # """self designed parametric utility function"""
+        # # return x4 * x1 - (x0 * (x3 / x2)) * x3 + (x4 - (x0 * (x3 / x2))) * x1
+        #
+        # """original utility function, minimizes """
+        # # return sign*x0*(x3/x2)*x1 - x0*(x3/x2)*x3
 
     """fix parameters E_global, c_S_global, c_l_global"""
     def constraint_param_x0(x):
         return E_global_buyers - x[0]
 
     def constraint_param_x1(x):
-        return c_S_global_buyers - x[1]
+        return E_i_demand_global - x[1]
 
     def constraint_param_x2(x):
         return c_l_global_buyers - x[2]
-
-    def constraint_param_x4(x):
-        return E_i_demand_buyers_global - x[4]
 
     """incorporate various constraints"""
     con0 = {'type': 'eq', 'fun': constraint_param_x0}
     con1 = {'type': 'eq', 'fun': constraint_param_x1}
     con2 = {'type': 'eq', 'fun': constraint_param_x2}
-    con4 = {'type': 'eq', 'fun': constraint_param_x4}
 
-    cons = [con0, con1, con2, con4]
-    # bounds_buyer = ((0, None), (0, None), (0, None), (c_macro[0], c_macro[1]), (0, None))
-    bounds_buyer = ((0, None), (0, None), (0, None), (c_macro[0], None), (0, None))
+    cons = [con0, con1, con2]
+    bounds_buyer = ( (0, None), (0, None), (0, None), (0, None) )
 
     """optimize using SLSQP(?)"""
     sol_buyer = minimize(utility_buyer, initial_conditions, method='SLSQP', bounds=bounds_buyer, constraints=cons)

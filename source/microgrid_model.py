@@ -18,7 +18,7 @@ noise = np.random.normal(0, 1, 100)
 
 
 """All starting parameters are initialised"""
-duration = 4  # 1440                # Duration of the sim (one full day or 1440 time_steps of 1 minute) !!10 if test!!
+duration = 1  # 1440                # Duration of the sim (one full day or 1440 time_steps of 1 minute) !!10 if test!!
 N = 5                               # N agents only
 step_list = np.zeros([duration])
 
@@ -122,6 +122,7 @@ class HouseholdAgent(Agent):
         self.E_j_supply = 0
         self.c_i_bidding_price = 0
         self.stored = 0
+        self.bidding_prices_summed = 0
 
         """results"""
         self.results = []
@@ -183,15 +184,12 @@ class MicroGrid(Model):
         self.c_nominal = 0
         self.w_storage_factors = np.zeros(N)
         self.R_total = 0
-
         """Battery"""
         self.E_total_stored = 0
-
+        self.E_total_surplus = 0
         """Unrelated crap"""
         self.sellers_pool = []
         self.buyers_pool = []
-
-
 
 
         """create a set of N agents with activations schedule and e = unique id"""
@@ -222,8 +220,6 @@ class MicroGrid(Model):
                 self.w_storage_factors[agent.id] = agent.w_j_storage_factor
                 self.E_total_supply += agent.E_j_surplus * agent.w_j_storage_factor
 
-        # print(self.buyers_pool, self.sellers_pool)
-
         """Optimization after division of players into pools"""
         tolerance_global = 1
         tolerance_buyers = 1
@@ -247,17 +243,18 @@ class MicroGrid(Model):
                 for agent in self.agents[:]:
                     if agent.classification == 'buyer':
                         prev_bid = agent.c_i_bidding_price
-                        bidding_prices_summed = sum(self.c_bidding_prices)
-                        agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, bidding_prices_summed)
-                        utility_i = calc_utility_function_i(self.E_total_supply, c_macro, agent.c_i_bidding_price, bidding_prices_summed)
+                        agent.bidding_prices_summed = sum(self.c_bidding_prices) - agent.c_i_bidding_price
+                        agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_summed)
+                        utility_i, demand_gap = calc_utility_function_i(agent.E_i_demand, self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_summed)
                         print("buyer", agent.id, "demand from macro-grid =", agent.E_i_demand - agent.E_i_allocation)
                         print("utility buyer", agent.id, "=", utility_i)
                         """update"""
-                        sol_buyer, sol_buyer.x[3] = buyers_game_optimization(agent.id, agent.E_i_demand, self.E_total_supply, c_macro, agent.c_i_bidding_price, bidding_prices_summed)
+                        sol_buyer, sol_buyer.x[3] = buyers_game_optimization(agent.id, agent.E_i_demand, self.E_total_supply, c_macro, agent.c_i_bidding_price, agent.bidding_prices_summed)
+
                         agent.c_i_bidding_price =  sol_buyer.x[3]
                         self.c_bidding_prices[agent.id] = agent.c_i_bidding_price
-                        bidding_prices_summed = sum(self.c_bidding_prices)
-                        agent.E_i_allocation = allocation_to_i_func(self.E_total_supply, agent.c_i_bidding_price, bidding_prices_summed)
+                        agent.bidding_prices_summed = sum(self.c_bidding_prices) - agent.c_i_bidding_price
+                        agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_summed)
                         agent.payment_to_seller = agent.c_i_bidding_price * agent.E_i_allocation
                         self.R_total += agent.payment_to_seller
                         print("buyer", agent.id, "demand from macro-grid =", agent.E_i_demand - agent.E_i_allocation)
@@ -308,4 +305,4 @@ class MicroGrid(Model):
         """ Update time """
         self.steps += 1
         self.time += 1
-        return self.E_total_supply, self.buyers_pool, self.sellers_pool
+        return self.E_total_surplus, self.E_total_supply, self.buyers_pool, self.sellers_pool

@@ -71,10 +71,9 @@ model_testrun = MicroGrid(N, big_data_file)        # create microgrid model with
 duration_test = duration
 supply_over_time_list = []
 for i in range(duration):
-    supply_per_step, buyers, sellers = model_testrun.step()
-    print(supply_per_step)
-    supply_over_time_list.append(supply_per_step)
+    surplus_on_step, supply_on_step, buyers, sellers = model_testrun.step()
+    print("total surplus =", surplus_on_step, "supplied =", supply_on_step)
+    supply_over_time_list.append(supply_on_step)
 
 supply_over_time = np.array(supply_over_time_list)
-print(supply_over_time)
 
