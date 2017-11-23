@@ -6,11 +6,11 @@ def initialize(agent_value):
     E_j_supply = random.uniform(0, 100)       # Ej (if sellers)
     E_i_demand = random.uniform(0, 100)       # Ei (if buyers)
     used_energy = 0               # Ei*ci initial
-    E_i_allocation = 0
+    E_i_allocation = 0.0
     stored_energy = 0.5
-    available_storage = 0
-    payment_to_seller = 0
-    w_j_storage_factor = random.uniform(0.20, 0.8)
+    available_storage = 0.0
+    payment_to_seller = 0.0
+    w_j_storage_factor = random.uniform(1, 2)
 
 
     """initialization function"""

@@ -3,6 +3,7 @@ import numpy as np
 from scipy.optimize import minimize
 import random
 
+import ctypes
 
 def read_csv(filename,duration):                                    # still using a single load pattern for all houses
     """Reads in load and generation data from data set"""
@@ -29,17 +30,18 @@ def define_pool(consumption_at_round, production_at_round):
         surplus_per_agent = 0
     else:
         classification = "passive"
+        demand_agent = 0
+        surplus_per_agent = 0
     return [classification, surplus_per_agent, demand_agent]
+
+def bidding_prices_others(c_bidding_prices, c_i_bidding_price):
+    bidding_prices_others = sum(c_bidding_prices) - c_i_bidding_price
+    return bidding_prices_others
 
 
 def calc_supply(surplus_per_agent, w_j_storage_factor):             # E_j
     supply_per_agent = surplus_per_agent * w_j_storage_factor
     return supply_per_agent
-
-
-def allocation_to_i_func(supply_on_step, bidding_price_i, bidding_prices_total):            # w_j_storage_factor is nested in E_total_supply
-    Ei = supply_on_step*(bidding_price_i/bidding_prices_total)
-    return Ei
 
 
 def calc_R_j_revenue(R_total, E_j_supply, w_j_storage_factor, E_total_supply):
@@ -67,8 +69,8 @@ def calc_utility_function_j(id, E_j_supply, R_total, E_total_supply, R_predictio
     # return utility_j
 
 
-def allocation_i(E_total_supply,c_i_bidding_price, c_bidding_prices_summed):
-    E_i_allocation = E_total_supply * (c_i_bidding_price / c_bidding_prices_summed)
+def allocation_i(E_total_supply,c_i_bidding_price, c_bidding_prices_others):
+    E_i_allocation = E_total_supply * (c_i_bidding_price / (c_bidding_prices_others + c_i_bidding_price))
     return E_i_allocation
 
 
@@ -99,7 +101,7 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
 
     initial_conditions = [E_global_buyers, E_i_demand_global, c_l_global_buyers, c_i_global_buyers, alpha]
 
-    """ This is a MINIMIZATION of revenue"""
+    """ This is a MINIMIZATION of costs"""
     def utility_buyer(x):
         x0 = x[0]       # E_global_buyers
         x1 = x[1]       # E_i_demand_buyers_global
@@ -163,7 +165,7 @@ def sellers_game_optimization(id_seller, E_j_seller, R_total, E_total_supply, R_
     initial_conditions_seller = [Ej_global_sellers, R_total_global_sellers, E_global_sellers, R_prediction_global, E_prediction_global, wj_global_sellers]
 
     """ This is a MAXIMIZATION of revenue"""
-    def utility_seller(x, sign= -1):
+    def utility_seller(x):
 
         Ej = x[0]   # Ej_global_sellers
         Rd = x[1]   # R_total_global_sellers
@@ -175,7 +177,7 @@ def sellers_game_optimization(id_seller, E_j_seller, R_total, E_total_supply, R_
 
 
         """New Utility"""
-        return sign * ( (Rp * (Ej * (1-wj)/ (Ep + Ej * (1 - wj))))**2 + (Rd * ( Ej * wj / (E + (Ej * wj))))**2)  # E must be made as " everything except j"
+        return Rp * (Ej * (1 - wj)/ (Ep + Ej * (1 - wj))) + Rd * ( Ej * wj / (E + (Ej * wj)))  # E must be made as " everything except j"
 
         """old utility"""
         # return sign * x0 *(1 - x4) + x2 * x1 * ((x0 * x4) / x3)
@@ -229,6 +231,7 @@ else:
 """
 
 
+"""error/test functions"""
 
 
 
