@@ -190,21 +190,27 @@ class MicroGrid(Model):
         self.big_data_file = big_data_file
         self.agents = []
         self.E_total_supply = 0
+        self.E_total_surplus = 0
         self.c_bidding_prices = np.zeros(N)
         self.c_nominal = 0
         self.w_storage_factors = np.zeros(N)
         self.R_total = 0
+        self.E_supply_per_agent = np.zeros(N)
         """Battery"""
         self.E_total_stored = 0
         self.E_total_surplus = 0
         """Unrelated"""
         self.sellers_pool = []
         self.buyers_pool = []
+        self.passive_pool = []
         """Two pool prediction defining future load and supply"""
         self.R_prediction = []
         self.E_prediction = []
-
-
+        self.E_supply_prediction = 0
+        self.E_surplus_prediction = 0
+        self.w_j_prediction = 0.5
+        self.c_nominal_prediction = 0
+        self.E_demand_prediction = 0
         """create a set of N agents with activations schedule and e = unique id"""
         for e in range(self.num_households):
             agent = HouseholdAgent(e, self)
@@ -232,7 +238,8 @@ class MicroGrid(Model):
                 """Level 2 init of game of sellers"""
                 self.sellers_pool.append(agent.id)
                 self.w_storage_factors[agent.id] = agent.w_j_storage_factor
-                self.E_total_supply += agent.E_j_surplus * agent.w_j_storage_factor
+                self.E_total_surplus += agent.E_j_surplus                               # does not change by optimization
+                self.E_total_supply += agent.E_j_surplus * agent.w_j_storage_factor     # does change by optimization
             else:
                 self.passive_pool.append(agent.id)
 
@@ -253,14 +260,14 @@ class MicroGrid(Model):
 
         """Global optimization"""
         initial_values = self.c_bidding_prices
-
+        payment_to_seller = np.zeros(N)
         print(initial_values)
         """global level"""
         while True: # global
             iteration_global += 1
             self.c_nominal = sum(self.c_bidding_prices, 0) / len(self.buyers_pool)
             prev_c_nominal = self.c_nominal
-
+            print("total energy available to buyers is ", self.E_total_supply)
             """Buyers level optimization"""
             while True: # buyers
                 iteration_buyers += 1
@@ -279,29 +286,33 @@ class MicroGrid(Model):
                         # print("OLD: buyer", agent.id, "demand from macro-grid =", agent.E_i_demand - agent.E_i_allocation)
                         # print("OLD: utility buyer", agent.id, "=", utility_i)
 
-                        """update"""
+                        """update c_i"""
                         sol_buyer, sol_buyer.x[3] = buyers_game_optimization(agent.id, agent.E_i_demand, self.E_total_supply, c_macro, agent.c_i_bidding_price, agent.bidding_prices_others)
 
                         agent.c_i_bidding_price =  sol_buyer.x[3]
                         self.c_bidding_prices[agent.id] = agent.c_i_bidding_price
                         agent.bidding_prices_others = bidding_prices_others(self.c_bidding_prices, agent.c_i_bidding_price)
                         agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
-                        agent.payment_to_seller = agent.c_i_bidding_price * agent.E_i_allocation
-                        self.R_total += agent.payment_to_seller
+                        print("new allocation to buyer %d = %f" % (agent.id, agent.E_i_allocation))
+                        payment_to_seller[agent.id] = agent.c_i_bidding_price * agent.E_i_allocation
                         # print("NEW: buyer", agent.id, "demand from macro-grid =", agent.E_i_demand - agent.E_i_allocation)
                         # print("NEW: utility buyer", agent.id, "=", utility_i)
 
                         new_bid = agent.c_i_bidding_price
                         agent.tol_buyer.append(new_bid - prev_bid)
-                        print("tol_buyer ",agent.id,"= ",agent.tol_buyer)
+                        # print("tol_buyer ",agent.id,"= ",agent.tol_buyer)
                         tolerance_buyers[agent.id] = abs(new_bid - prev_bid)
                     else:
                         self.c_bidding_prices[agent.id] = 0  # current total payment offered
 
 
+
                 epsilon_buyers_game = max(abs(tolerance_buyers))
                 if epsilon_buyers_game < 0.01:
-                    print("optimization of buyers-level game %d has been completed with e = %f!" % (self.steps, epsilon_buyers_game))
+                    """ Values  to be plugged into sellers game"""
+                    self.c_nominal = sum(self.c_bidding_prices, 0) / len(self.buyers_pool)
+                    self.R_total = sum(payment_to_seller)
+                    print("optimization of buyers-level game %d has been completed with e = %f and c_nominal = %f!" % (self.steps, epsilon_buyers_game, self.c_nominal))
                     tolerance_buyers[:] = 0
                     for agent in self.agents[:]:
                         agent.tol_buyer = []
@@ -309,45 +320,45 @@ class MicroGrid(Model):
                 else:
                     pass
 
-            print(tolerance_buyers)
 
-            """ Nominal price to be presented to sellers"""
-            self.c_nominal = sum(self.c_bidding_prices, 0) / len(self.buyers_pool)
+            """Determine global tolerances"""
             new_c_nominal = self.c_nominal
-
             tolerance_global = abs(new_c_nominal - prev_c_nominal)
-            new_supply_agents = 0  # resets for every step
-            old_wj_vector =  self.w_storage_factors# self.w_storage_factors
 
-            """create horizon"""
-            surplus_per_step_prediction = np.zeros(duration)
-            demand_per_step_prediction = np.zeros(duration)
+            """create horizon prediction model"""
+            surplus_per_step_prediction = np.zeros((duration, len(self.agents)))
+            demand_per_step_prediction = np.zeros((duration, len(self.agents)))
 
             print(self.agents)
             for i in range(duration):
                 for agent in self.agents[:]:
+                    """ now using actual data (big_data_file) but should be substituted with prediction data"""
                     energy_per_step_per_agent_prediction = self.big_data_file[i][agent.id][0] - self.big_data_file[i][agent.id][1]         # [0] = load, corresponds with demand  - [1] = production
 
                     if energy_per_step_per_agent_prediction <= 0:
-                        demand_per_step_prediction[i] += abs(energy_per_step_per_agent_prediction)
+                        demand_per_step_prediction[i][agent.id] = abs(energy_per_step_per_agent_prediction)
 
                     if energy_per_step_per_agent_prediction < 0:
-                        surplus_per_step_prediction[i] += abs(energy_per_step_per_agent_prediction)
+                        surplus_per_step_prediction[i][agent.id] = abs(energy_per_step_per_agent_prediction)
+
 
             print(demand_per_step_prediction)  # elements in list represent total demand in the system for 1 step
             print(surplus_per_step_prediction) #
 
 
-            """ for now this is the prediction """
-            self.R_prediction = demand_per_step_prediction[self.steps + 1] * self.c_nominal
-            self.E_prediction = surplus_per_step_prediction[self.steps + 1]
+            """ for now this is the prediction, horizon is now 1 step ahead"""
+            self.E_demand_prediction = demand_per_step_prediction[self.steps:(self.steps + 2)]                      # quadratic
+            self.E_horizon =
+            # self.R_prediction = demand_per_step_prediction[self.steps + 1] * self.c_nominal_prediction # use when also sellers-game
 
+
+            self.E_surplus_prediction = surplus_per_step_prediction[self.steps + 1]
+            self.E_supply_prediction = self.E_surplus_prediction * self.w_j_prediction
             # i is range (out of duration), j is agents
             # big_data_file[1][j][0] = test_load_file_agents[j][i]  # *(random.uniform(0.9, 1.2))
             # big_data_file[1][j][1] = test_production_file_agents[j][i]  # *(random.uniform(0.9, 1.2))
 
             """sellers-level game optimization"""
-
             while True: # sellers
                 iteration_sellers += 1
                 for agent in self.agents[:]:
@@ -357,56 +368,57 @@ class MicroGrid(Model):
                         smart-meter needs a prediction on the coming day. Either use the load data or make a predicted model on 
                         all aggregated load data"""
                         prev_wj = agent.w_j_storage_factor
-                        print(prev_wj)
-                        agent.bidding_prices_others = sum(self.c_bidding_prices) - agent.c_i_bidding_price
-                        agent.E_others_supply = self.E_total_supply - (agent.E_j_surplus * agent.w_j_storage_factor)
-
+                        agent.bidding_prices_others = sum(self.c_bidding_prices)
+                        old_prediction_utility, old_direct_utility, old_utility_j = calc_utility_function_j(agent.id, agent.E_j_surplus, self.R_total, self.E_total_supply, self.R_prediction, self.E_surplus_prediction, agent.w_j_storage_factor)
+                        print("old utility of seller", agent.id, "=", old_utility_j)
 
                         """update"""
-                        sol_seller, sol_seller.x[5] = sellers_game_optimization(agent.id, agent.E_j_surplus, self.R_total, agent.E_others_supply, self.R_prediction, self.E_prediction, agent.w_j_storage_factor)
-                        agent.w_j_storage_factor = sol_seller.x[5]
+                        # sol_seller, sol_seller.x[5] = sellers_game_optimization(agent.id, agent.E_j_surplus, self.R_total, agent.E_others_supply, self.R_prediction, self.E_surplus_prediction, agent.w_j_storage_factor)
+                        # agent.w_j_storage_factor = sol_seller.x[5]
 
+                        agent.w_j_storage_factor = calc_wj(self.E_demand, self.E_horizon)
+
+                        self.E_supply_per_agent[agent.id] = agent.E_j_surplus * agent.w_j_storage_factor
+                        self.E_total_supply = sum(self.E_supply_per_agent)
                         difference_rev = self.R_total - self.R_prediction
-                        difference_load = self.E_total_supply - self.E_prediction
+                        difference_load = self.E_total_supply - self.E_surplus_prediction
                         print("diff in revenue =", difference_rev, "diff in load =", difference_load)
 
-                        prediction_utility = self.R_prediction * (agent.E_j_surplus * (1 - agent.w_j_storage_factor) / (self.E_prediction + agent.E_j_surplus * (1 - agent.w_j_storage_factor)))
+                        prediction_utility = self.R_prediction * (agent.E_j_surplus * (1 - agent.w_j_storage_factor) / (self.E_surplus_prediction + agent.E_j_surplus * (1 - agent.w_j_storage_factor)))
                         direct_utility = self.R_total * (agent.E_j_surplus * agent.w_j_storage_factor / (self.E_total_supply + (agent.E_j_surplus * agent.w_j_storage_factor)))
                         print("prediction_utility =", prediction_utility, "direct_utility =", direct_utility)
                         self.w_storage_factors[agent.id] = agent.w_j_storage_factor
-                        new_supply_agents += calc_supply(agent.pv_generation, agent.w_j_storage_factor)
-                        utility_j = calc_utility_function_j(agent.id, agent.E_j_surplus, self.R_total, self.E_total_supply, self.R_prediction, self.E_prediction, agent.w_j_storage_factor)
+
+                        prediction_utility, direct_utility, utility_j = calc_utility_function_j(agent.id, agent.E_j_surplus, self.R_total, self.E_total_supply, self.R_prediction, self.E_surplus_prediction, agent.w_j_storage_factor)
                         print("utility of seller", agent.id, "=", utility_j)
 
                         new_wj = agent.w_j_storage_factor
-                        print(new_wj)
-
                         tolerance_sellers[agent.id] = abs(new_wj - prev_wj)
                     else:
                         agent.w_j_storage_factor = 0
+                print("new sellers round, update E_total_supply")
+                self.E_total_supply = 0
+                for agent in self.agents[:]:
+                    self.E_total_supply += calc_supply(agent.pv_generation, agent.w_j_storage_factor)
+                for agent in self.agents[:]:
+                    agent.E_others_supply = self.E_total_supply - (agent.E_j_surplus * agent.w_j_storage_factor)
 
-                new_wj_vector = self.w_storage_factors
+                print(self.E_total_supply)
                 epsilon_sellers_game = max(abs(tolerance_sellers))
                 if epsilon_sellers_game < 0.01:
                     print("optimization of sellers-level game %d has been completed with e = %f!" % (self.steps, epsilon_sellers_game))
                     tolerance_sellers[:] = 0
-
                     break
                 else:
                     pass
 
-            self.E_total_supply = new_supply_agents
-
             epsilon_global_game = abs(tolerance_global)
-            if epsilon_global_game < 0.00001 or iteration_global > 10:
-                print("optimization of round %d has been completed!" % self.steps)
+            if epsilon_global_game < 0.1 or iteration_global > 10:
+                print("optimization of round %d has been completed in %d iterations with c_n epsilon = %f!!" % (self.steps, iteration_global, tolerance_global))
                 tolerance_global = 0
-
                 break
             else:
                 pass
-
-
 
 
 

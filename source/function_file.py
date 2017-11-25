@@ -50,10 +50,10 @@ def calc_R_j_revenue(R_total, E_j_supply, w_j_storage_factor, E_total_supply):
     return R_j
 
 
-def calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bidding_prices_summed):
+def calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bidding_prices_others):
     """This function calculates buyers utility"""
-    E_i_allocation = allocation_i(E_total_supply, c_i_bidding_price, c_bidding_prices_summed)
-    utility_i = (E_i_demand - (E_total_supply * (c_i_bidding_price/c_bidding_prices_summed)))**1.7 + (E_total_supply * (c_i_bidding_price**2/c_bidding_prices_summed))
+    E_i_allocation = allocation_i(E_total_supply, c_i_bidding_price, c_bidding_prices_others)
+    utility_i = (E_i_demand - (E_total_supply * (c_i_bidding_price/(c_bidding_prices_others + c_i_bidding_price))))**1.7 + (E_total_supply * (c_i_bidding_price**2/(c_bidding_prices_others + c_i_bidding_price)))
     demand_gap = E_i_demand - E_i_allocation
     return utility_i, demand_gap
 
@@ -62,7 +62,8 @@ def calc_utility_function_j(id, E_j_supply, R_total, E_total_supply, R_predictio
     """This function calculates sellers utility"""
     prediction_utility = R_prediction * (E_j_supply * (1 - w_j_storage_factor) / (E_prediction + E_j_supply * (1 - w_j_storage_factor)))
     direct_utility = R_total * (E_j_supply * w_j_storage_factor / (E_total_supply + (E_j_supply * w_j_storage_factor)))
-    return prediction_utility + direct_utility
+    utility_j = prediction_utility + direct_utility
+    return prediction_utility, direct_utility, utility_j
 
     # R_j_revenue = calc_R_j_revenue(R_total, E_j_supply, w_j_storage_factor, E_total_supply)
     # utility_j = E_j_supply*(1 - w_j_storage_factor) + R_j_revenue  # utility of selling agent j
@@ -82,9 +83,6 @@ def calc_gamma():
 
 def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidding_price_i_prev, bidding_prices_all):
     """Level 1 game: distributed optimization"""
-
-    E_i_allocation_optimization = allocation_i(supply_on_step, bidding_price_i_prev, bidding_prices_all)
-    print("allocation to buyer =", E_i_allocation_optimization)
 
     """globally declared variables, do not use somewhere else!!"""
     global E_global_buyers, c_S_global_buyers, c_i_global_buyers, c_l_global_buyers, E_i_demand_global
@@ -110,6 +108,7 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
         alpha = x[4]    # prediction weight
 
         """self designed parametric utility function"""
+        """ (E_demand - E_allocation)^n + (E_supply)  + satisfaction of a charged battery!"""
         return alpha * (x1 -  (x0 * (x3/(x2 + x3))))**1.7 + x0 * (x3/(x2 + x3)) * x3
 
         # """self designed parametric utility function"""
@@ -150,7 +149,17 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
     return sol_buyer, sol_buyer.x[3]
 
 
-def sellers_game_optimization(id_seller, E_j_seller, R_total, E_total_supply, R_prediction, E_prediction, w_j_storage_factor):
+
+def sellers_game_noBattery_optimization():
+    """ function without w_j is not even an optimization but """
+    pass
+
+
+def calc_wj(E_demand, E_horizon):
+    w_j_storage = (E_demand**2/sum(E_horizon**2))
+    return w_j_storage
+
+def sellers_game_optimization(id_seller, E_j_seller, R_total, E_total_supply, R_prediction, E_surplus_prediction, w_j_storage_factor):
     """ Anticipation on buyers is plugged in here"""
 
     global Ej_global_sellers, R_total_global_sellers, E_global_sellers, R_prediction_global, E_prediction_global, wj_global_sellers
@@ -159,7 +168,7 @@ def sellers_game_optimization(id_seller, E_j_seller, R_total, E_total_supply, R_
     R_total_global_sellers = R_total
     E_global_sellers = E_total_supply
     R_prediction_global = R_prediction
-    E_prediction_global = E_prediction
+    E_prediction_global = E_surplus_prediction
     wj_global_sellers = w_j_storage_factor
 
     initial_conditions_seller = [Ej_global_sellers, R_total_global_sellers, E_global_sellers, R_prediction_global, E_prediction_global, wj_global_sellers]
