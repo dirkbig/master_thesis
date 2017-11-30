@@ -1,38 +1,79 @@
 from source.microgrid_model import *
+import os
+import matplotlib.pyplot as plt
 
-"""Read in actual data specific to actual agent: this is OK (using opensource data)"""
+duration = 1440
+
+"""Read in actual data specific to actual agent: this is OK (using open-source data)"""
+load_file_agents = np.zeros((N,duration))
+production_file_agents = np.zeros((N,duration))
+
+master_file = np.zeros((N, duration, 3))
+
+agent_id_load = 0
+
+for data_folder in os.listdir("/Users/dirkvandenbiggelaar/Desktop/DATA/LOAD"):
+      load_file_path = "/Users/dirkvandenbiggelaar/Desktop/DATA/LOAD/" + data_folder
+      load_file_agents[agent_id_load] = read_csv_comma(load_file_path, duration)
+      agent_id_load += 1
+      if agent_id_load > N - 1:
+          break
+
+# plt.plot(load_file_agents[0])
+# plt.plot(load_file_agents[2])
+#
+# plt.show()
+
+usable, length_usable = get_usable()
+agent_id_prod = 0
+
+
+for i in range(len(usable)):
+    print(usable)
+    print(i)
+    for folder in os.listdir("/Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION/" + str(int(usable[i])))[:]:
+        production_folder_path = "/Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION/" + str(int(usable[i]))
+        for file in os.listdir(production_folder_path):
+            print(os.listdir(production_folder_path)[1])
+            production_file_path = production_folder_path + '/' + os.listdir(production_folder_path)[1]
+            print(production_file_path)
+            break
+        production_file_agents[agent_id_prod] = read_csv_comma(production_file_path, duration)
+        print(production_file_agents[agent_id_prod])
+        plt.plot(production_file_agents[agent_id_prod])
+        plt.show()
+        agent_id_prod += 1
+        if agent_id_prod > N - 1:
+            break
+
 
 
 """Read in real test-data: this is pretty shitty"""
-# """Assign data files"""
-# load = "load_test.csv"           # load has comma
-# production = "solar_test.csv"    # solar has semicolon
-#
-#
-# load_file_agents = np.zeros((N,duration))
-# production_file_agents = np.zeros((N,duration))
-# # production_file = np.zeros(N)
-# battery_file_agents = np.zeros((N,duration))
-# master_file = np.zeros((N, duration, 3))
-#
-#
-# """Loads in data of a typical agent"""
-# for agent in range(N):
-#     load_file_agents[agent] = read_csv(load, duration)
-#     production_file_agents[agent] = read_csv(production, duration)
-#     battery_file_agents[agent] = np.ones(duration)
-#
-#
-# """Gives all agents initial load and production prediction for the day"""
-# big_data_file = np.zeros((duration,N,3))             # list of data_file entries per agents
-# for i in range(duration):
-#     agent_file = np.zeros((N, 3))  # agent_file
-#     for j in range(N):
-#         big_data_file[i][j][0] = load_file_agents[j][i]*(random.uniform(0.9, 1.2))
-#         big_data_file[i][j][1] = production_file_agents[j][i]*(random.uniform(0.9, 1.2))
-#         big_data_file[i][j][2] = battery_file_agents[j][i]
-#    # big_data_file[i][0][1] = 0          # for player 1, makes him a consumer
-#
+
+"""Assign data files"""
+load = "load_test.csv"           # load has comma
+production = "solar_test.csv"    # solar has semicolon
+
+
+
+
+"""Loads in data of a typical agent"""
+for agent in range(N):
+    load_file_agents[agent] = read_csv(load, duration)
+    production_file_agents[agent] = read_csv(production, duration)
+    battery_file_agents[agent] = np.ones(duration)
+
+
+"""Gives all agents initial load and production prediction for the day"""
+big_data_file = np.zeros((duration,N,3))             # list of data_file entries per agents
+for i in range(duration):
+    agent_file = np.zeros((N, 3))  # agent_file
+    for j in range(N):
+        big_data_file[i][j][0] = load_file_agents[j][i]*(random.uniform(0.9, 1.2))
+        big_data_file[i][j][1] = production_file_agents[j][i]*(random.uniform(0.9, 1.2))
+        big_data_file[i][j][2] = battery_file_agents[j][i]
+   # big_data_file[i][0][1] = 0          # for player 1, makes him a consumer
+
 
 
 """Test with test data: this is almost complete shit"""
@@ -52,31 +93,31 @@ from source.microgrid_model import *
 #     test_battery_file_agents[testagent] = test_battery_file_agents         # read_csv(test_battery, duration) # all the same battery ""
 
 """Fake test data: this is complete shit"""
-test_load_file_agents =     [ \
-                            [100, 300   ,100, 100,100, 100, 100, 100,100,100],
-                            [100, 100   ,100, 100,100, 100, 100, 100,100,100],
-                            [0  , 0     ,0,0,0,0,0,0,0,0],
-                            [1000, 100   ,100, 100,100, 100, 100, 100,100,100],
-                            [0  , 0     ,0,0,0,0,0,0,0,0],
-                            [100, 100   ,100, 100,100, 100, 100, 100,100,100],
-                            [70 , 100   ,100, 100,100, 100, 100, 100,100,100],
-                            [0  , 0     ,0,0,0,0,0,0,0,0],
-                            [50 , 100   ,100, 100,100, 100, 100, 100,100,100],
-                            [0  , 0     ,0,0,0,0,0,0,0,0]]
-
-test_production_file_agents =  [ \
-                             [0  ,  30  ,0,0,0,0,0,0,0,0],
-                             [0  ,  0    ,0,0,0,0,0,0,0,0],
-                             [20,  310  ,150,200,150,150,150,150,150,150],
-                             [0  ,  0    ,0,0,0,0,0,0,0,0],
-                             [150,  330   ,150,150,150,150,150,150,150,150],
-                             [0  ,  0    ,0,0,0,0,0,0,0,0],
-                             [0  ,  0    ,0,0,0,0,0,0,0,0],
-                             [150,  50   ,150,150,150,150,150,150,150,150],
-                             [0  ,  0    ,0,0,0,0,0,0,0,0],
-                             [150,  150  ,150,150,150,150,150,150,150,150]]
-
-test_battery_file_agents = [100, 100, 100, 100,100, 100, 100, 100,100,100]
+# test_load_file_agents =     [ \
+#                             [100, 300   ,100, 100,100, 100, 100, 100,100,100],
+#                             [100, 100   ,100, 100,100, 100, 100, 100,100,100],
+#                             [0  , 0     ,0,0,0,0,0,0,0,0],
+#                             [1000, 100   ,100, 100,100, 100, 100, 100,100,100],
+#                             [0  , 0     ,0,0,0,0,0,0,0,0],
+#                             [100, 100   ,100, 100,100, 100, 100, 100,100,100],
+#                             [70 , 100   ,100, 100,100, 100, 100, 100,100,100],
+#                             [0  , 0     ,0,0,0,0,0,0,0,0],
+#                             [50 , 100   ,100, 100,100, 100, 100, 100,100,100],
+#                             [0  , 0     ,0,0,0,0,0,0,0,0]]
+#
+# test_production_file_agents =  [ \
+#                              [0  ,  30  ,0,0,0,0,0,0,0,0],
+#                              [0  ,  0    ,0,0,0,0,0,0,0,0],
+#                              [20,  310  ,150,200,150,150,150,150,150,150],
+#                              [0  ,  0    ,0,0,0,0,0,0,0,0],
+#                              [150,  330   ,150,150,150,150,150,150,150,150],
+#                              [0  ,  0    ,0,0,0,0,0,0,0,0],
+#                              [0  ,  0    ,0,0,0,0,0,0,0,0],
+#                              [150,  50   ,150,150,150,150,150,150,150,150],
+#                              [0  ,  0    ,0,0,0,0,0,0,0,0],
+#                              [150,  150  ,150,150,150,150,150,150,150,150]]
+#
+# test_battery_file_agents = [100, 100, 100, 100,100, 100, 100, 100,100,100]
 
 big_data_file = np.zeros((duration, N, 3))             # list of data_file entries per agents
 for i in range(duration):

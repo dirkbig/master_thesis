@@ -1,12 +1,9 @@
-import csv
-import numpy as np
-from scipy.optimize import minimize
-import random
+rootdir = 'C:/Users/sid/Desktop/test'
 
 
-def utility_seller(x, sign=-1):
-    return np.log(1.0 + 10 * (1 - x))
-
-
-sol_seller = minimize(utility_seller, initial_conditions_seller, method='SLSQP', bounds=bounds_seller,
-                      constraints=cons_seller)  # bounds=bounds
+for data_folder in os.listdir("/Users/dirkvandenbiggelaar/Desktop/DATA"):
+    if data_folder == 'LOAD':
+        print("this is load")
+    if data_folder == 'PRODUCTION':
+        for production_files in os.listdir("/Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION"):
+            print("this is production")

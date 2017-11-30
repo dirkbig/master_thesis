@@ -6,11 +6,41 @@ import numpy as np
 from scipy.optimize import minimize
 # from source.plots import *
 
+""" DATA """
+def check_file(filename):
+    with open(filename) as csvfile:
+        CSVread_check = csv.reader(csvfile, delimiter=';')
+        # print(CSVread_check)
+        # print(len(list(CSVread_check)))
+        return len(list(CSVread_check))
 
-def read_csv(filename,duration):                                    # still using a single load pattern for all houses
+
+def get_usable():
+    list_usable_folders = np.array([])
+    with open('/Users/dirkvandenbiggelaar/Desktop/DATA/list_of_prod_folders.csv') as list_of_prod_folders:
+        csv_usable = csv.reader(list_of_prod_folders, delimiter=',')
+        for row in csv_usable:
+            list_usable_folders = np.append(list_usable_folders, int(row[-1]))
+        return list_usable_folders, len(list_usable_folders)
+
+
+def read_csv_comma(filename,duration):                                    # still using a single load pattern for all houses
     """Reads in load and generation data from data set"""
     with open(filename) as csvfile:
         CSVread = csv.reader(csvfile, delimiter=',')
+        data_return = np.zeros(duration - 991)
+        for row in CSVread:
+            data_value = float(row[-1])
+            data_return = np.append(data_return, data_value)
+            if len(data_return) == duration:
+                break
+        return data_return
+
+
+def read_csv_semicolon(filename,duration):                                    # still using a single load pattern for all houses
+    """Reads in load and generation data from data set"""
+    with open(filename) as csvfile:
+        CSVread = csv.reader(csvfile, delimiter=';')
         data_return = np.array([])
         for row in CSVread:
             data_value = float(row[-1])
@@ -19,6 +49,8 @@ def read_csv(filename,duration):                                    # still usin
             data_return = np.append(data_return, 0)
         return data_return
 
+
+""" ALGORITHM """
 
 def define_pool(consumption_at_round, production_at_round):
     """this function has to decide whether agent is a buyer or a seller"""
@@ -290,7 +322,7 @@ def sellers_game_optimization(id_seller, E_j_seller, R_total, E_supply_others, R
     con_seller4 = {'type': 'eq', 'fun': constraint_param_seller4}
 
     cons_seller = [con_seller0, con_seller1, con_seller2, con_seller3, con_seller4]
-    bounds_seller = ((0, None), (0, None), (0, None), (0, None), (0, None), (0.001, 0.999))
+    bounds_seller = ((0, None), (0, None), (0, None), (0, None), (0, None), (0.0, 1.0))
 
     sol_seller = minimize(utility_seller, initial_conditions_seller, method='SLSQP', bounds=bounds_seller, constraints=cons_seller)  # bounds=bounds
     print("seller %d game results in %s" % (id_seller, sol_seller.x[5]))
