@@ -24,26 +24,31 @@ def get_usable():
         return list_usable_folders, len(list_usable_folders)
 
 
-def read_csv_comma(filename,duration):                                    # still using a single load pattern for all houses
+def read_csv_production(filename,duration):                                    # still using a single load pattern for all houses
     """Reads in load and generation data from data set"""
     with open(filename) as csvfile:
         CSVread = csv.reader(csvfile, delimiter=',')
-        data_return = np.zeros(duration - 991)
+        data_return = np.zeros(300)
         for row in CSVread:
             data_value = float(row[-1])
+            if data_value < 0.0:
+                data_value = 0.0
             data_return = np.append(data_return, data_value)
-            if len(data_return) == duration:
-                break
+        zero = 0.0
+        while len(data_return) < duration:
+            data_return = np.append(data_return, zero )
         return data_return
 
 
-def read_csv_semicolon(filename,duration):                                    # still using a single load pattern for all houses
+def read_csv_load(filename,duration):                                    # still using a single load pattern for all houses
     """Reads in load and generation data from data set"""
     with open(filename) as csvfile:
-        CSVread = csv.reader(csvfile, delimiter=';')
+        CSVread = csv.reader(csvfile, delimiter=',')
         data_return = np.array([])
         for row in CSVread:
             data_value = float(row[-1])
+            if data_value < 0.0:
+                data_value = 0.0
             data_return = np.append(data_return, data_value)
         while len(data_return) < duration:
             data_return = np.append(data_return, 0)

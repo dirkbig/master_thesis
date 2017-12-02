@@ -24,7 +24,7 @@ noise = np.random.normal(0, 1, 100)
 
 """All starting parameters are initialised"""
 duration = 200  # 1440                # Duration of the sim (one full day or 1440 time_steps of 1 minute) !!10 if test!!
-N = 3                           # N agents only
+N = 15                           # N agents only
 step_list = np.zeros([duration])
 
 c_S = 10                                              # c_S is selling price of the microgrid
