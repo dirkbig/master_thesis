@@ -1,51 +1,58 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-Ej = 200
-alpha = 1
-
-
-
-Rd = 500.80204398
-E_others_d =  200.5
-
-Rp = 300.534
-E_others_p = 200.0
+def plot_E_total_surplus_prediction_per_step(E_total_surplus_prediction_per_step, N):
+    plt.plot(E_total_surplus_prediction_per_step/N)
+    plt.show()
 
 
-w = np.arange(0, 1, 0.01) # Grid of 0.01 spacing from -2 to 10
+def plot_results(mean_sharing_factors, supply_over_time_list, demand_over_time, c_nominal_over_time, buyers, sellers):
+    plt.subplot(4, 1, 1)
+    plt.plot(supply_over_time_list, label="supply_over_time_list")
+    plt.plot(demand_over_time, label="demand_over_time")
+    plt.legend()
+
+    plt.subplot(4, 1, 2)
+    plt.plot(mean_sharing_factors, label="mean_sharing_factors")
+    plt.legend()
 
 
-""" Share of total revenue in direct sales for j with selling factor w"""
-direct_revenue_for_agent = Rd * (Ej*w)/(E_others_d + (Ej*w))
+    plt.subplot(4, 2, 1)
+    plt.plot(c_nominal_over_time, label="c_nominal_over_time")
+    plt.legend()
 
-""" Share of total revenue in predicted sales for j with selling factor w"""
-predicted_revenue_for_agent = Rp * (Ej*(1-w))/(E_others_p + (Ej*(1-w)))
-
-
-
-
-""" missed revenue on 
-selling """
-y_direct = direct_revenue_for_agent**0.8
-
-""" missed revenue on 
-storing """
-y_prediction = predicted_revenue_for_agent**0.8
-
-plt.title("Utility of Sellers")
-plt.xlabel('w of j')
-plt.ylabel('U of j')
-plt.plot(y_direct, label="direct U" )
-plt.plot(y_prediction, label="predicted U")
-plt.plot(y_prediction + y_direct, label="total U")
-plt.legend()
-plt.show()
+    plt.subplot(4, 2, 2)
+    plt.plot(buyers, label="buyers")
+    plt.plot(sellers, label="sellers")
+    plt.legend()
+    plt.show()
 
 
-direct_revenue_for_agent = Rd * (Ej*w)/(E_others_d + (Ej*w))
-predicted_revenue_for_agent = Rp * (Ej*(1-w))/(E_others_p + (Ej*(1-w)))
 
-# plt.plot(y_prediction + y_direct)
+def plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time,E_real_over_time_normalised,R_real_over_time_normalised):
+    """w_nominal against predicted energy and predicted revenue"""
 
+    R_prediction_over_time_normalised = R_prediction_over_time/max(R_prediction_over_time)
+    E_prediction_over_time_normalised = E_prediction_over_time/max(E_prediction_over_time)
+    E_real_over_time_normalised = E_real_over_time_normalised/max(E_real_over_time_normalised)
+    R_real_over_time_normalised = R_real_over_time_normalised/max(R_real_over_time_normalised)
+
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(211)
+    ax1.plot(w_nominal_over_time, label='w_nominal')
+    ax1.plot(E_prediction_over_time_normalised, label='E_prediction')
+    ax1.plot(E_real_over_time_normalised, label='E_prediction')
+    ax1.legend()
+
+
+    ax2 = fig1.add_subplot(212)
+    ax2.plot(w_nominal_over_time, label='w_nominal')
+    ax2.plot(R_prediction_over_time_normalised, label='R_prediction')
+    ax2.plot(R_real_over_time_normalised, label='R_prediction')
+    ax2.legend()
+
+
+
+    plt.show()
+
+    # fig.savefig(file_name, bbox_inches='tight')

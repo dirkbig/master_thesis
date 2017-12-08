@@ -1,9 +1,17 @@
-rootdir = 'C:/Users/sid/Desktop/test'
+import numpy as np
 
 
-for data_folder in os.listdir("/Users/dirkvandenbiggelaar/Desktop/DATA"):
-    if data_folder == 'LOAD':
-        print("this is load")
-    if data_folder == 'PRODUCTION':
-        for production_files in os.listdir("/Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION"):
-            print("this is production")
+a = [0,1,2,3,4,5,6,7,8,9]
+
+
+
+new_step_time = 4
+
+print(len(a)/new_step_time)
+
+b = np.zeros(int(len(a)/new_step_time))
+
+for step in range(int(len(a)/new_step_time)):
+    b[step] = sum(a[new_step_time*step:(new_step_time*step + new_step_time)])
+
+print(b)
