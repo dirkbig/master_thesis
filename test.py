@@ -1,17 +1,9 @@
 import numpy as np
 
 
-a = [0,1,2,3,4,5,6,7,8,9]
+horizon = 3
+E_prediction_series = [1,2,3,4,5,6]
 
+future_availability = sum(range(horizon), E_prediction_series)
 
-
-new_step_time = 4
-
-print(len(a)/new_step_time)
-
-b = np.zeros(int(len(a)/new_step_time))
-
-for step in range(int(len(a)/new_step_time)):
-    b[step] = sum(a[new_step_time*step:(new_step_time*step + new_step_time)])
-
-print(b)
+print(future_availability)

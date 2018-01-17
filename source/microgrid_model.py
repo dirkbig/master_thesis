@@ -123,7 +123,7 @@ class HouseholdAgent(Agent):
 
         """agent characteristics"""
         self.id = unique_id
-        self.battery_capacity_n = 10000                           # every household has an identical battery
+        self.battery_capacity_n = 1000                           # every household has an identical battery, for now
         self.pv_generation = random.uniform(0, 1)               # random.choice(range(15)) * pvgeneration
         self.consumption = random.uniform(0, 1)                 # random.choice(range(15)) * consumption
         self.classification = []
@@ -140,13 +140,24 @@ class HouseholdAgent(Agent):
         self.bidding_prices_others = 0
         self.E_supply_others = 0
         self.w_nominal = 0
+
+        """ utilities of agents"""
+        self.utility_i = 0
+        self.utility_j = 0
+
+        """ merely a summary """
+        self.utilities_seller = [0, 0, 0]
+        self.utilities_buyer = [0, 0, 0, 0]
+
         """prediction"""
-        self.horizon_agent = 4                                       # should not be bigger than total steps duhh
+        self.current_step = 0
+        self.max_horizon = 50
+        self.horizon_agent = min(self.max_horizon, sim_steps - self.current_step)  # including current step
         self.E_n_surplus_prediction = np.zeros(self.horizon_agent)
         self.w_j_prediction = 0.5
         """Battery related"""
-        self.soc_preferred =   5000
-        self.soc_actual = 5000
+        self.soc_preferred =   500
+        self.soc_actual = 500
         self.soc_gap = 0
         self.soc_influx = 0
         self.batt_available = 0
@@ -162,18 +173,25 @@ class HouseholdAgent(Agent):
         self.tol_buyer = []
         self.action = []
 
-    def step(self, big_data_file_per_step, big_data_file, steps):           # big_data_file = np.zeros((N, step_time, 3))
+
+    def step(self, big_data_file_per_step, big_data_file, E_total_surplus_prediction_per_step, steps):           # big_data_file = np.zeros((N, step_time, 3))
         """Agent optimization step, what ever specific agents do on during step"""
         """real time data"""
         self.consumption = big_data_file_per_step[self.id, 0]           # import load file
-        self.pv_generation = big_data_file_per_step[self.id, 1]         # import generation file
+        self.pv_generation = big_data_file_per_step[self.id, 1]        # import generation file
 
         """ agents personal prediction"""
-        for steps in range(self.horizon_agent):
-            self.E_n_surplus_prediction = big_data_file[steps][self.id][0] - big_data_file[steps][self.id][1]  # load - production
+        self.horizon_agent = min(self.max_horizon, sim_steps - self.current_step)  # including current step
 
+        for i in range(self.horizon_agent):
+            self.E_n_surplus_prediction[i] = big_data_file[steps + i][self.id][0] - big_data_file[steps + i][self.id][1]  # load - production
+
+        self.E_n_surplus_prediction_one = big_data_file[steps][self.id][0] - big_data_file[steps][self.id][1]
         """Determine state of charge of agent's battery"""
-        self.soc_preferred = get_preferred_soc(self.battery_capacity_n, self.soc_preferred)
+        self.current_step = steps
+        battery_horizon = self.horizon_agent  # including current step
+
+        self.soc_preferred = get_preferred_soc(self.soc_preferred, self.battery_capacity_n, self.E_n_surplus_prediction, battery_horizon)
         soc_gap = self.soc_preferred - self.soc_actual
         self.soc_gap = soc_gap
         if self.soc_gap < 0:
@@ -188,7 +206,6 @@ class HouseholdAgent(Agent):
         """define buyers/sellers classification"""
         [classification, surplus_agent, demand_agent] = define_pool(self.consumption, self.pv_generation, self.soc_gap, self.soc_surplus, self.charge_rate, self.discharge_rate)
         self.classification = classification
-
 
 
         """Define players pool and let agents act according to battery states"""
@@ -206,6 +223,11 @@ class HouseholdAgent(Agent):
                 """ or start to play the selling game with it"""
                 # self.classification = 'seller'
                 # self.E_j_surplus = abs(self.E_i_demand)
+
+                self.E_j_surplus = 0
+                self.w_j_storage_factor = 0
+
+
             else:
                 self.c_i_bidding_price = random.uniform(min(c_macro), max(c_macro))
                 print("Household %d says: I am a %s" % (self.id, self.classification))
@@ -276,14 +298,23 @@ class MicroGrid(Model):
         self.R_prediction = 0
         self.E_prediction = 0
         self.E_supply_prediction = 0
-        self.E_surplus_prediction = 0
+        self.E_surplus_prediction_over_horizon = 0
         self.w_prediction = 0.5
         self.c_nominal_prediction = 0
-        self.E_demand_prediction = 0
+        self.E_total_demand_prediction = 0
         self.E_surplus_prediction_per_agent = 0
-        self.E_total_surplus_prediction_per_step = 0
+
+        prediction_range = sim_steps - self.steps  # data ends at end of day
+        if prediction_range <= 0:
+            prediction_range = 1
+        self.E_total_surplus_prediction_per_step = np.zeros(prediction_range)
 
         self.w_nominal = 0
+        self.utilities_sellers = np.zeros((N, 3))
+        self.utilities_buyers = np.zeros((N, 4))
+
+        self.soc_preferred = np.zeros(N)
+
         """create a set of N agents with activations schedule and e = unique id"""
         for e in range(self.num_households):
             agent = HouseholdAgent(e, self)
@@ -306,11 +337,9 @@ class MicroGrid(Model):
         """DYNAMICS"""
 
 
-
-
         """Take initial """
         for agent in self.agents[:]:
-            agent.step(self.big_data_file[self.steps], self.big_data_file, self.steps)
+            agent.step(self.big_data_file[self.steps], self.big_data_file, self.E_total_surplus_prediction_per_step, self.steps)
             classification = agent.classification
             if classification == 'buyer':
                 """Level 1 init game among buyers"""
@@ -370,22 +399,31 @@ class MicroGrid(Model):
                         agent.bidding_prices_others = bidding_prices_others(self.c_bidding_prices, agent.c_i_bidding_price)
                         agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
                         self.E_allocation_per_agent[agent.id] = agent.E_i_allocation
-                        # utility_i, demand_gap = calc_utility_function_i(agent.E_i_demand, self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
+                        # agent.utility_i, utility_demand_gap = calc_utility_function_i(agent.E_i_demand, self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
+
                         """update c_i"""
                         sol_buyer, sol_buyer.x[0] = buyers_game_optimization(agent.id, agent.E_i_demand, self.E_total_supply, c_macro, agent.c_i_bidding_price, agent.bidding_prices_others, agent.batt_available, agent.soc_gap)
                         agent.c_i_bidding_price =  sol_buyer.x[0]
+
                         if np.isnan(agent.c_i_bidding_price):
                             agent.classification = 'passive'
                             tolerance_buyers[agent.id] = 0
                             print("agent %d is set to passive" % agent.id)
+
                         self.c_bidding_prices[agent.id] = agent.c_i_bidding_price
                         agent.bidding_prices_others = bidding_prices_others(self.c_bidding_prices, agent.c_i_bidding_price)
                         agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
                         payment_to_seller[agent.id] = agent.c_i_bidding_price * agent.E_i_allocation
-                        utility_i, demand_gap = calc_utility_function_i(agent.E_i_demand, self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
-                        if utility_i - sol_buyer.fun > 1:
+
+                        agent.utility_i, demand_gap, utility_demand_gap, utility_costs = calc_utility_function_i(agent.E_i_demand, self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
+                        agent.utilities_buyer = [agent.utility_i, demand_gap, utility_demand_gap, utility_costs]
+                        self.utilities_buyers[agent.id] = [agent.utility_i, demand_gap, utility_demand_gap, utility_costs]
+
+
+                        if agent.utility_i - sol_buyer.fun > 1:
                             sys.exit("utility_i calculation does not match with optimization code")
                             pass
+
                         new_bid = agent.c_i_bidding_price
                         agent.tol_buyer.append(new_bid - prev_bid)
                         tolerance_buyers[agent.id] = abs(new_bid - prev_bid)
@@ -400,7 +438,7 @@ class MicroGrid(Model):
                     if sum(self.E_allocation_per_agent) == 0:
                         self.c_nominal = 0
                     self.R_total = sum(payment_to_seller)
-                    plt.plot(epsilon_buyers_list)
+                    # plt.plot(epsilon_buyers_list)
                     print("BUYERS: optimization of buyers-level game %d has been completed with e = %f! in %d rounds!" % (self.steps, epsilon_buyers_game, iteration_buyers))
                     print("BUYERS: total demand from buyers is %f with a c_nominal = %f" %  (self.E_demand, self.c_nominal))
                     tolerance_buyers[:] = 0
@@ -417,49 +455,62 @@ class MicroGrid(Model):
             new_c_nominal = self.c_nominal
             tolerance_c_nominal = abs(new_c_nominal - prev_c_nominal)
 
-            """create horizon for prediction model"""
+
+            """ prediction range is total amount of steps left """
             prediction_range = sim_steps - self.steps         # data ends at end of day
             if prediction_range <= 0:
                 prediction_range = 1
+
+            """ surplus_prediction/demand_per_step_prediction gives predicted surplus/demand; per step, per agent"""
             surplus_prediction = np.zeros((prediction_range, len(self.agents)))
             demand_per_step_prediction = np.zeros((prediction_range, len(self.agents)))
 
-
-            """Index prediction data"""
+            """ index prediction data, now using the current data set... AI should be plugged in here eventually"""
             for i in range(prediction_range):
                 for agent in self.agents[:]:
                     """ now using actual data (big_data_file) but should be substituted with prediction data"""
                     energy_per_step_per_agent_prediction = self.big_data_file[self.steps + i][agent.id][0] - self.big_data_file[self.steps + i][agent.id][1]         # [0] = load, corresponds with demand  - [1] = production
-
+                    """ results in either demand_per_step_prediction or surplus_prediction for each agent"""
                     if energy_per_step_per_agent_prediction >= 0:
+                        """ series of coming demands"""
                         demand_per_step_prediction[i][agent.id] = abs(energy_per_step_per_agent_prediction)
-
                     if energy_per_step_per_agent_prediction < 0:
+                        """ series of coming surpluses"""
                         surplus_prediction[i][agent.id] = abs(energy_per_step_per_agent_prediction)
 
+            """ determine length/distance of horizon over which prediction data is effectual through a weight system (log, linear.. etc) """
+            horizon = min(70, sim_steps - self.steps) # including current step
+
+            """ for now this is the prediction """
+            self.E_total_surplus_prediction_per_step = np.zeros(prediction_range) # must adapt in size for every step (shrinking as time progresses))
+            self.E_total_demand_prediction = np.zeros(prediction_range)
+
+            for i in range(prediction_range):
+                self.E_total_surplus_prediction_per_step[i] = calc_E_total_prediction(surplus_prediction[i][:], horizon, N, self.steps, prediction_range)    # linear
+
+            # plt.plot(self.E_total_surplus_prediction_per_step)
+            # plt.show()
+            """ A prediction"""
+            self.R_prediction, alpha, beta = calc_R_prediction(self.R_total, self.big_data_file, horizon, self.agents, self.steps)
+            self.E_surplus_prediction_over_horizon = calc_E_surplus_prediction(self.E_total_surplus_prediction_per_step, horizon, N, self.steps, prediction_range) # np.mean(self.E_total_surplus_prediction_per_step[0:horizon])                                # linear
+
+            """ conversion to usable E_supply_prediction (using w_prediction does nothing yet)
+                Make use of agents knowledge that is shared among each others: 
+                total predicted energy = sum(individual predictions)"""
+            self.w_prediction = calc_w_prediction()
+            self.E_supply_prediction = self.E_surplus_prediction_over_horizon * self.w_prediction
+
+            # plot_E_total_surplus_prediction_per_step(self.E_total_surplus_prediction_per_step, N)
+
+            """ analysis of prediction data """
             means_surplus = []
             means_load = []
 
             for i in range(prediction_range):
                 means_surplus.append(np.mean(surplus_prediction[i][:]))
                 means_load.append(np.mean(demand_per_step_prediction[i][:]))
-            # plt.plot(means_surplus)
-            # plt.plot(means_load)
-            # plt.show
+            # plot_prediction(means_surplus, means_load)
 
-            horizon = min(10, sim_steps - self.steps) # including current step
-
-            self.E_total_surplus_prediction_per_step = np.zeros(prediction_range)
-            """ for now this is the prediction, horizon is now 61 step ahead"""
-            self.E_demand_prediction = np.zeros((sim_steps - (self.steps + horizon), horizon))
-            for i in range(sim_steps - (self.steps + horizon)):
-                self.E_total_surplus_prediction_per_step[i] = calc_E_prediction(surplus_prediction[i][:], horizon, N, self.steps, prediction_range)    # linear
-
-            self.R_prediction, alpha = calc_R_prediction(self.R_total, self.big_data_file, horizon, self.agents, self.steps)
-            self.E_surplus_prediction = np.mean(self.E_total_surplus_prediction_per_step[0:horizon])                                # linear
-            self.E_supply_prediction = self.E_surplus_prediction * self.w_prediction
-
-            # plot_E_total_surplus_prediction_per_step(self.E_total_surplus_prediction_per_step, N)
 
 
             supply_old = self.E_total_supply
@@ -471,7 +522,7 @@ class MicroGrid(Model):
                 for agent in self.agents[:]:
                     agent.E_supply_others = self.E_total_supply - (agent.E_j_surplus * agent.w_j_storage_factor)
                     agent.bidding_prices_others = sum(self.c_bidding_prices) - agent.c_i_bidding_price
-                    agent.E_supply_others_prediction = self.E_supply_prediction - agent.E_n_surplus_prediction * agent.w_j_prediction #+ self.battery_soc_total - agent.battery_capacity_n
+                    agent.E_supply_others_prediction = self.E_supply_prediction - agent.E_n_surplus_prediction_one * agent.w_j_prediction #+ self.battery_soc_total - agent.battery_capacity_n
                 for agent in self.agents[:]:
                     if agent.classification == 'seller':
                         """Sellers optimization game, plugging in bidding price to decide on sharing factor.
@@ -485,16 +536,29 @@ class MicroGrid(Model):
                         """update"""
                         sol_seller, sol_seller.x[0] = sellers_game_optimization(agent.id, agent.E_j_surplus, self.R_total, agent.E_supply_others, self.R_prediction, agent.E_supply_others_prediction, agent.w_j_storage_factor, agent.lower_bound_on_w_j)
                         agent.w_j_storage_factor = sol_seller.x[0]
+
+                        prediction_utility, direct_utility, agent.utility_j = calc_utility_function_j(agent.id,
+                                                                                                agent.E_j_surplus,
+                                                                                                self.R_total,
+                                                                                                agent.E_supply_others,
+                                                                                                self.R_prediction,
+                                                                                                agent.E_supply_others_prediction,
+                                                                                                agent.w_j_storage_factor)
+                        if abs(agent.utility_j - sol_seller.fun) > 10:
+                            sys.exit("utility_j calculation does not match with optimization code")
+                            pass
+                        agent.utility_seller = [agent.utility_j, prediction_utility, direct_utility]
+                        # print(agent.utility_seller)
+                        self.utilities_sellers[agent.id] = agent.utility_seller
+                        # print(self.utilities_sellers)
+
                         self.E_supply_per_agent[agent.id] = agent.E_j_surplus * agent.w_j_storage_factor
                         self.E_total_supply = sum(self.E_supply_per_agent)
                         agent.E_supply_others = self.E_total_supply - (agent.E_j_surplus * agent.w_j_storage_factor)
                         difference_rev = self.R_total - self.R_prediction
-                        difference_load = self.E_total_supply - self.E_surplus_prediction
+                        difference_load = self.E_total_supply - self.E_surplus_prediction_over_horizon
                         self.w_storage_factors[agent.id] = agent.w_j_storage_factor
-                        prediction_utility, direct_utility, utility_j = calc_utility_function_j(agent.id, agent.E_j_surplus, self.R_total, agent.E_supply_others, self.R_prediction, agent.E_supply_others_prediction, agent.w_j_storage_factor)
-                        # if utility_j - sol_seller.fun > 1:
-                        #     sys.exit("utility_j calculation does not match with optimization code")
-                        #     pass
+
                         new_wj = agent.w_j_storage_factor
                         tolerance_sellers[agent.id] = abs(new_wj - prev_wj)
                     else:
@@ -504,10 +568,11 @@ class MicroGrid(Model):
                 self.E_total_supply = 0
                 self.E_demand = 0
 
+
                 for agent in self.agents[:]:
                     self.E_total_supply += calc_supply(agent.pv_generation, agent.w_j_storage_factor)
                     self.E_demand += agent.E_i_demand
-                    self.R_total = self.E_total_supply * self.c_nominal
+                    # self.R_total_end = self.E_total_supply * self.c_nominal
                 for agent in self.agents[:]:
                     agent.E_supply_others = self.E_total_supply - (agent.E_j_surplus * agent.w_j_storage_factor)
 
@@ -519,9 +584,11 @@ class MicroGrid(Model):
                     print("SELLERS: total surplus = %f, supply to buyers = %f with w_nominal = %f" % (self.E_total_surplus, self.E_total_supply, self.w_nominal))
                     tolerance_sellers[:] = 0
                     supply_new = self.E_total_supply
+
+                    """ Update on batteries """
                     for agent in self.agents[:]:
                         self.actual_batteries[agent.id] = agent.soc_actual
-                        print(self.actual_batteries)
+                        # print(self.actual_batteries)
                     break
                 else:
                     pass
@@ -532,6 +599,7 @@ class MicroGrid(Model):
             if (epsilon_c_nominal < 10 and tolerance_supply < 10) or iteration_global > 10:
                 print("GLOBAL: optimization of round %d has been completed in %d iterations with e = %f!!" % (self.steps, iteration_global, tolerance_supply))
                 print("GLOBAL: total surplus =", self.E_total_surplus, "supplied =", self.E_total_supply)
+
                 """settle all deals"""
                 for agent in self.agents[:]:
                     if agent.classification == 'buyer':
@@ -549,7 +617,7 @@ class MicroGrid(Model):
                         agent.payment = agent.E_i_allocation * agent.c_i_bidding_price
                     elif agent.classification == 'seller':
                         agent.soc_influx = agent.E_j_surplus * (1 - agent.w_j_storage_factor)
-                        agent.revenue = agent.E_j_surplus * self.c_nominal
+                        agent.revenue = agent.E_j_surplus * agent.w_j_storage_factor * self.c_nominal
                         agent.soc_actual += agent.soc_influx
                     self.actual_batteries[agent.id] = agent.soc_actual
                 self.battery_soc_total = sum(self.actual_batteries)
@@ -568,4 +636,19 @@ class MicroGrid(Model):
         """ Update time """
         self.steps += 1
         self.time += 1
-        return self.E_total_surplus, self.E_total_supply, self.E_demand, self.buyers_pool, self.sellers_pool, self.w_storage_factors, self.c_nominal, self.w_nominal, self.R_prediction, self.E_supply_prediction, self.E_total_supply,self.R_total
+
+        """ Pull data out of agents """
+        total_soc_pref = 0
+        for agent in self.agents[:]:
+            total_soc_pref += agent.soc_preferred
+            self.soc_preferred[agent.id] = agent.soc_preferred
+        avg_soc_preferred = total_soc_pref/N
+
+        return self.E_total_surplus, self.E_total_supply, self.E_demand, \
+               self.buyers_pool, self.sellers_pool, self.w_storage_factors, \
+               self.c_nominal, self.w_nominal, \
+               self.R_prediction, self.E_supply_prediction, self.E_total_supply, self.R_total, \
+               self.actual_batteries, self.E_total_supply, self.E_demand, \
+               self.utilities_buyers, self.utilities_sellers, \
+               self.soc_preferred, avg_soc_preferred
+

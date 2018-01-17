@@ -1,10 +1,8 @@
 from source.microgrid_model import *
 import os
-import matplotlib.pyplot as plt
 
 if stopping_point > total_steps:
     sys.exit("stopping point should be within bounds of the day")
-
 
 
 """Read in actual data specific to actual agent: this is OK (using open-source data)"""
@@ -315,30 +313,81 @@ R_prediction_over_time = np.zeros(sim_steps)
 E_prediction_over_time = np.zeros(sim_steps)
 R_real_over_time = np.zeros(sim_steps)
 E_real_over_time = np.zeros(sim_steps)
+utilities_buyers_over_time = np.zeros((sim_steps, N, 4))
+utilities_sellers_over_time = np.zeros((sim_steps, N, 3))
 
+surplus_on_step_over_time = np.zeros(sim_steps)
+supplied_on_step_over_time = np.zeros(sim_steps)
+demand_on_step_over_time = np.zeros(sim_steps)
+
+""" batteries """
+actual_batteries_over_time = np.zeros((N, sim_steps))
+E_total_supply_over_time = np.zeros(sim_steps)
+E_demand_over_time = np.zeros(sim_steps)
+avg_soc_preferred_over_time = np.zeros(sim_steps)
+soc_preferred_list_over_time = np.zeros((N, sim_steps))
 
 """Run that fucker"""
 for i in range(sim_steps):
-    surplus_on_step, supplied_on_step, demand_on_step, buyers, sellers, sharing_factors, c_nominal_per_step, w_nominal, R_prediction_step,E_prediction_step, E_real, R_real  = model_testrun.step()
+    """ Data collection"""
+    surplus_on_step, supplied_on_step, demand_on_step, \
+    buyers, sellers, sharing_factors, \
+    c_nominal_per_step, w_nominal, \
+    R_prediction_step, E_prediction_step, E_real, R_real, \
+    actual_batteries, E_total_supply, E_demand, \
+    utilities_buyers, utilities_sellers, \
+    soc_preferred_list, avg_soc_preferred \
+        = model_testrun.step()
+
+    # E_real == supplied_on_step
+
     mean_sharing_factors[i] = np.mean(sharing_factors)
     supplied_over_time_list[i] = supplied_on_step
     demand_over_time[i] = demand_on_step
     c_nominal_over_time[i] = c_nominal_per_step
+
+    """ Fix this """
     number_of_buyers_over_time[i] = len(buyers)
     number_of_sellers_over_time[i] = len(sellers)
+
+    surplus_on_step_over_time[i] = surplus_on_step
+    supplied_on_step_over_time[i] = supplied_on_step
+    demand_on_step_over_time[i] = demand_on_step
+
+
     R_prediction_over_time[i] = R_prediction_step
     E_prediction_over_time[i] = E_prediction_step
     w_nominal_over_time[i] = w_nominal
     R_real_over_time[i] = R_real
     E_real_over_time[i] = E_real
-    if i == stopping_point:
-        print("done")
+
+    for agent in range(N):
+        actual_batteries_over_time[agent][i] = actual_batteries[agent]
+
+    utilities_sellers_over_time[i][:][:] = utilities_sellers
+    utilities_buyers_over_time[i][:][:] = utilities_buyers
+
+    E_total_supply_over_time[i] = E_total_supply
+    E_demand_over_time[i] = E_demand
+
+    # print(utilities_sellers, 'utilities_sellers')
+    # print(utilities_sellers_over_time, 'utilities_sellers_over_time')
+
+    if i >= stopping_point/step_time:
+        print("done, nu nog plotjes")
         break
 
 
 """DATA PROCESSING"""
-plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_real_over_time, R_real_over_time)
-plot_results(mean_sharing_factors, supplied_over_time_list, demand_over_time, c_nominal_over_time,number_of_buyers_over_time,number_of_sellers_over_time)
 
+# plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_real_over_time, R_real_over_time, c_nominal_over_time)
+# plot_results(mean_sharing_factors, supplied_over_time_list, demand_over_time, c_nominal_over_time,number_of_buyers_over_time,number_of_sellers_over_time)
+# plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_time, E_demand_over_time, N)
+# plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, sim_steps)
+# plot_supplied_vs_surplus_total(surplus_on_step_over_time, supplied_on_step_over_time, demand_on_step_over_time)
+
+
+
+plot_avg_soc_preferred(soc_preferred_list_over_time, avg_soc_preferred_over_time)
 print("done, nu echt")
 

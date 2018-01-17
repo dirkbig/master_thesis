@@ -11,10 +11,11 @@ from scipy.optimize import minimize
 
 
 
-global lambda1, lambda2, lambda11
+global lambda11, lambda12, lambda21, lambda22
 lambda11 = 0.5
 lambda12 = 3
-lambda2 = 2
+lambda21 = 2
+lambda22 = 2.2
 
 """ DATA """
 
@@ -81,7 +82,13 @@ def read_csv_big_data(filename, duration):
 
 def define_pool(consumption_at_round, production_at_round, soc_gap, soc_surplus, charge_rate, discharge_rate):
     """this function has to decide whether agent is a buyer or a seller"""
+
+    """Interesting definition of surplus; including battery preference"""
     surplus_per_agent = (production_at_round + soc_surplus/discharge_rate) - (consumption_at_round + soc_gap/charge_rate)
+
+    """Simple definition of surplus"""
+    # surplus_per_agent = production_at_round - consumption_at_round
+
     if surplus_per_agent > 0:
         classification = 'seller'
         demand_agent = 0
@@ -115,21 +122,66 @@ def calc_R_j_revenue(R_total, E_j_supply, w_j_storage_factor, E_total_supply):
 def calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bidding_prices_others):
     """This function calculates buyers utility"""
     E_i_allocation = allocation_i(E_total_supply, c_i_bidding_price, c_bidding_prices_others)
-    utility_i = (E_i_demand - E_i_allocation)**lambda11 + (c_i_bidding_price * E_i_allocation)**lambda12
-    demand_gap = E_i_demand - E_i_allocation
-    return utility_i, demand_gap
+
+
+    """ I made demand-gap to be absolute, meaning also higher allocation than demand is a penalty... not more that logical since it
+        would be weird to need for 10 and to receive/passively buy 15 """
+    utility_i = (abs(E_i_demand - E_i_allocation))**lambda11 + (c_i_bidding_price * E_i_allocation)**lambda12
+
+    demand_gap = abs(E_i_demand - E_i_allocation)
+    utility_demand_gap  = demand_gap**lambda11
+    utility_costs       = (c_i_bidding_price * E_i_allocation)**lambda12
+    return utility_i, demand_gap, utility_demand_gap, utility_costs
 
 
 def calc_utility_function_j(id, E_j_surplus, R_direct, E_supply_others, R_prediction, E_prediction_others, w_j_storage_factor):
     """This function calculates sellers utility"""
-    direct_utility = - (R_direct * (E_j_surplus * w_j_storage_factor / (E_supply_others + (E_j_surplus * w_j_storage_factor))))**lambda2
-    prediction_utility = - (R_prediction * (E_j_surplus * (1 - w_j_storage_factor) / (E_prediction_others + E_j_surplus * (1 - w_j_storage_factor))))**lambda2
+
+    R_p_opt = R_prediction
+    E_j_opt = E_j_surplus
+    w       = w_j_storage_factor
+    E_p_opt = E_prediction_others
+    R_d_opt = R_direct
+    E_d_opt = E_supply_others
+
+    prediction_utility = - (R_p_opt * (E_j_opt * (1 - w) / (E_p_opt + E_j_opt * (1 - w))))**lambda21
+    direct_utility = - (R_d_opt * (E_j_opt * w/(E_d_opt + E_j_opt*w)))**lambda22
+
     utility_j = prediction_utility + direct_utility
+
     return prediction_utility, direct_utility, utility_j
-    # return  - Rd * (Ej * wj / (E_others + (Ej * wj)))**0.6 - Rp * (Ej * (1 - wj) / (Ep + Ej * (1 - wj))) ** 0.6
 
 
-def get_preferred_soc(batt_capacity_agent, soc_preferred):
+def get_preferred_soc(soc_preferred, battery_capacity, E_prediction_series, horizon_length):
+    """determines the preferred state of charge for given agent/battery """
+
+    future_availability = 0
+    for i in range(horizon_length):
+        if E_prediction_series[i] < 0.001:
+            E_prediction_series[i] = 0.001
+
+        future_availability += E_prediction_series[i]
+
+    """ A.I. future work: horizon_length is exploration reinforcement learning; what is the optimal horizon such that the battery is never fully
+        depleted, but is used the most extensive possible for maximising profit. 
+        Depleted battery is a punishment / pushing it right to the edge is a reward """
+
+    max_E_predicted = max(E_prediction_series[0:horizon_length])
+    average_predicted_E_surplus = future_availability/horizon_length
+
+    """E_prediction_current is now subject to heavy changes, might there be a spike in E_prediction_current, then there is a 
+        corresponding spike in soc_preferred, thus maybe make E_prediction_current an average to make it more robust"""
+    E_prediction_current = E_prediction_series[0]
+
+    """ Only considering E_predicted and no actual E_demand of the user: only measure abundancy of the resource, not the actual 
+    need of the good..."""
+    weight_preferred_soc = 0.5**(average_predicted_E_surplus/E_prediction_current)**0.3
+    soc_preferred = battery_capacity * weight_preferred_soc
+
+    return soc_preferred
+
+""""""
+def get_preferred_soc_new(batt_capacity_agent, soc_preferred, E_prediction):
     """determines the preferred state of charge for given agent/battery"""
     soc_preferred = soc_preferred
     return soc_preferred
@@ -182,7 +234,7 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
 
         """self designed parametric utility function"""
         """ Closing the gap vs costs for closing the gap"""
-        return (E_i_opt - E_j_opt * c_i / (c_l_opt + c_i)) + (c_i * E_j_opt * (c_i/(c_l_opt + c_i)))**lambda12
+        return (abs(E_i_opt - E_j_opt * c_i / (c_l_opt + c_i)))**lambda11 + (c_i * E_j_opt * (c_i/(c_l_opt + c_i)))**lambda12
 
         # return (x1 - (x0 * (x3/(x2 + x3))))**lambda11 + (x3 * x0 * (x3/(x2 + x3)))**lambda12
 
@@ -249,36 +301,6 @@ def sellers_game_noBattery_optimization():
     pass
 
 
-def calc_wj(E_demand, E_horizon):
-    w_j_storage = (E_demand**2/sum(E_horizon**2))
-    return w_j_storage
-
-
-def calc_R_prediction(R_total, big_data_file, horizon, agents, steps):
-    """defines alpha weight according to future load - production"""
-    gap_per_agent = np.zeros(len(agents))
-    gap = np.zeros(horizon)
-    E_predicted_per_agent = np.zeros(len(agents))
-    E_predicted_on_step = np.zeros(horizon)
-
-    """calculate gap between load and (local) production"""
-    for i in range(horizon):
-        for agent in agents[:]:
-            gap_per_agent[agent.id] = big_data_file[steps + i][agent.id][1] - big_data_file[steps + i][agent.id][0]
-
-            E_predicted_per_agent[agent.id] = big_data_file[i][agent.id][0]
-
-        gap[i] = abs(sum(gap_per_agent))
-        E_predicted_on_step[i] = sum(E_predicted_per_agent)
-
-    alpha = gap[0]**0.5/(sum(gap**0.5/horizon))
-    beta = E_predicted_on_step[0]**0.5/(sum(E_predicted_on_step**0.5/horizon))
-    R_prediction = alpha * beta * R_total
-    # print("[alpha, beta] = ", [alpha, beta])
-
-    return R_prediction, alpha
-
-
 def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, lower_bound_on_w_j):
     """ Anticipation on buyers is plugged in here"""
 
@@ -304,12 +326,8 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
         #
         # wj = x[5]  # wj_global_sellers       unconstrained
 
-
         """New Utility"""
-        # return Rp  * (1-wj)**2 + Rd * wj**2  # E must be made as " everything except j"
-
-
-        return - (R_p_opt * (E_j_opt * (1 - w) / (E_p_opt + E_j_opt * (1 - w))))**lambda2- (R_d_opt * (E_j_opt * w/(E_d_opt + E_j_opt*w)))**lambda2
+        return - (R_p_opt * (E_j_opt * (1 - w) / (E_p_opt + E_j_opt * (1 - w))))**lambda21- (R_d_opt * (E_j_opt * w/(E_d_opt + E_j_opt*w)))**lambda22
 
         """old utility"""
         # return sign * x0 *(1 - x4) + x2 * x1 * ((x0 * x4) / x3)
@@ -344,32 +362,84 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
 
     bounds_seller = [(lower_bound_on_w_j, 1.0)]
 
-
     R_p = R_prediction
     E_j = E_j_seller
     E_p = E_supply_prediction
     R_d = R_direct
     E_d = E_supply_others
 
-
     init = w_j_storage_factor
 
     sol_seller = minimize(lambda w : utility_seller(w, R_p, E_j, E_p, R_d, E_d), init, method='SLSQP', bounds=bounds_seller)  # bounds=bounds, constraints=cons_seller
-    # print("seller %d game results in %s" % (id_seller, sol_seller.x[5]))
 
     """return 5th element of solution vector."""
     return sol_seller, sol_seller.x[0]
 
 
+
 """PREDICTION"""
 
-def calc_E_prediction(surplus_per_step_prediction, prediction_horizon, N, step, prediction_range):
-    E_predicted_per_step = 0
-    for agent_id in range(N):
-        E_predicted_per_step += surplus_per_step_prediction[agent_id]
-    return E_predicted_per_step
 
 
+def calc_R_prediction(R_total, big_data_file, horizon, agents, steps):
+    """defines alpha weight according to future load - production"""
+    gap_per_agent = np.zeros(len(agents))
+    gap = np.zeros(horizon)
+    E_predicted_per_agent = np.zeros(len(agents))
+    E_predicted_total = np.zeros(horizon)
+
+    def weight_filter(horizon, distance):
+        return
+
+    """calculate gap between load and (local) production"""
+    for i in range(horizon):
+        # weight_on_value = weight_filter(horizon, distance)
+        for agent in agents[:]:
+            gap_per_agent[agent.id] = big_data_file[steps + i][agent.id][0] - big_data_file[steps + i][agent.id][1]
+            E_predicted_per_agent[agent.id] = big_data_file[steps + i][agent.id][1]
+
+        gap[i] = abs(sum(gap_per_agent))
+        E_predicted_total[i] = sum(E_predicted_per_agent)
+
+    alpha = gap[0]**0.5/(sum(gap**0.5/horizon))
+    beta = E_predicted_total[0]**0.5/(sum(E_predicted_total**0.5/horizon))
+    R_prediction = alpha * beta * R_total
+    # print("[alpha, beta] = ", [alpha, beta])
+
+    return R_prediction, alpha, beta
+
+def calc_c_prediction():
+    c_prediction = 0.5
+    return c_prediction
+
+
+def calc_E_total_prediction(surplus_per_step_prediction, horizon, N, step, prediction_range):
+    """ linear weighted prediction for total predicted energy surplus per step"""
+    E_total_prediction_step = 0
+    for agent in range(N):
+        E_total_prediction_step += surplus_per_step_prediction[agent]
+    return E_total_prediction_step
+
+
+def calc_E_surplus_prediction(E_total_prediction_step, horizon, N, step, prediction_range):
+    """ atm this is linear weighted. I would make sense to make closer values more important/heavier weighted,
+        then; for faster response it is important to act on shorter-term prediction"""
+    E_surplus_prediction = 0
+    for steps in range(horizon):
+        E_surplus_prediction += E_total_prediction_step[steps]
+    """linear defined E_surplus_prediction_over_horizon"""
+    E_surplus_prediction_avg = E_surplus_prediction/horizon
+    return E_surplus_prediction_avg
+
+
+def calc_w_prediction():
+    w_prediction = 1
+    return w_prediction
+
+
+def calc_wj(E_demand, E_horizon):
+    w_j_storage = (E_demand**2/sum(E_horizon**2))
+    return w_j_storage
 """DYNAMICS"""
 
 def Peukerts_law():
