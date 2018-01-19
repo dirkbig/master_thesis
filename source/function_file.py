@@ -134,23 +134,6 @@ def calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bid
     return utility_i, demand_gap, utility_demand_gap, utility_costs
 
 
-def calc_utility_function_j(id, E_j_surplus, R_direct, E_supply_others, R_prediction, E_prediction_others, w_j_storage_factor):
-    """This function calculates sellers utility"""
-
-    R_p_opt = R_prediction
-    E_j_opt = E_j_surplus
-    w       = w_j_storage_factor
-    E_p_opt = E_prediction_others
-    R_d_opt = R_direct
-    E_d_opt = E_supply_others
-
-    prediction_utility = - (R_p_opt * (E_j_opt * (1 - w) / (E_p_opt + E_j_opt * (1 - w))))**lambda21
-    direct_utility = - (R_d_opt * (E_j_opt * w/(E_d_opt + E_j_opt*w)))**lambda22
-
-    utility_j = prediction_utility + direct_utility
-
-    return prediction_utility, direct_utility, utility_j
-
 
 def get_preferred_soc(soc_preferred, battery_capacity, E_prediction_series, horizon_length):
     """determines the preferred state of charge for given agent/battery """
@@ -301,36 +284,36 @@ def sellers_game_noBattery_optimization():
     pass
 
 
-def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, lower_bound_on_w_j):
+
+def calc_utility_function_j(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller):
+    """This function calculates sellers utility"""
+
+    R_p_opt = R_prediction
+    E_j_opt = E_j_seller
+    w       = w_j_storage_factor
+    E_p_opt = E_supply_prediction
+    R_d_opt = R_direct
+    E_d_opt = E_supply_others
+    E_j_p_opt = E_j_prediction_seller
+
+    prediction_utility =    - (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
+    direct_utility =        - (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22
+
+
+
+    utility_j = prediction_utility + direct_utility
+
+    return prediction_utility, direct_utility, utility_j
+
+def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lower_bound_on_w_j):
     """ Anticipation on buyers is plugged in here"""
 
-    # global Ej_global_sellers, R_total_global_sellers, E_global_sellers, R_prediction_global, E_prediction_global, wj_global_sellers
-    #
-    # Ej_global_sellers = E_j_seller
-    # R_total_global_sellers = R_total
-    # E_global_sellers = E_supply_others
-    # R_prediction_global = R_prediction
-    # E_prediction_global = E_supply_prediction
-    # wj_global_sellers = w_j_storage_factor
-
-    # initial_conditions_seller = [Ej_global_sellers, R_total_global_sellers, E_global_sellers, R_prediction_global, E_prediction_global, wj_global_sellers]
-
     """ This is a MAXIMIZATION of revenue"""
-    def utility_seller(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt):
-
-        # Ej = x[0]   # Ej_global_sellers
-        # Rd = x[1]   # R_total_global_sellers
-        # E  = x[2]   # E_global_sellers
-        # Rp = x[3]   # R_prediction_global
-        # Ep = x[4]   # E_prediction_global
-        #
-        # wj = x[5]  # wj_global_sellers       unconstrained
+    def utility_seller(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt, E_j_p_opt):
 
         """New Utility"""
-        return - (R_p_opt * (E_j_opt * (1 - w) / (E_p_opt + E_j_opt * (1 - w))))**lambda21- (R_d_opt * (E_j_opt * w/(E_d_opt + E_j_opt*w)))**lambda22
-
-        """old utility"""
-        # return sign * x0 *(1 - x4) + x2 * x1 * ((x0 * x4) / x3)
+        return - (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21 \
+               - (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22
 
     # def constraint_param_seller0(x):
     #     return Ej_global_sellers - x[0]
@@ -367,19 +350,20 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
     E_p = E_supply_prediction
     R_d = R_direct
     E_d = E_supply_others
-
+    E_j_p = E_j_prediction_seller
     init = w_j_storage_factor
 
-    sol_seller = minimize(lambda w : utility_seller(w, R_p, E_j, E_p, R_d, E_d), init, method='SLSQP', bounds=bounds_seller)  # bounds=bounds, constraints=cons_seller
+    """  - (R_prediction * (E_j_prediction_seller * (1 - w_j_storage_factor) / (E_supply_prediction + E_j_prediction_seller * (1 - w_j_storage_factor))))**lambda21 
+         - (R_direct     * (E_j_seller *                 w_j_storage_factor  / (E_supply_others     + E_j_seller *                 w_j_storage_factor)))**lambda22
+    """
 
+    sol_seller = minimize(lambda w : utility_seller(w, R_p, E_j, E_p, R_d, E_d, E_j_p), init, method='SLSQP', bounds=bounds_seller)  # bounds=bounds, constraints=cons_seller
     """return 5th element of solution vector."""
-    return sol_seller, sol_seller.x[0]
+    return sol_seller, sol_seller.x[0], utility_seller(sol_seller.x[0], R_p, E_j, E_p, R_d, E_d, E_j_p)
 
 
 
 """PREDICTION"""
-
-
 
 def calc_R_prediction(R_total, big_data_file, horizon, agents, steps):
     """defines alpha weight according to future load - production"""
@@ -421,19 +405,19 @@ def calc_E_total_prediction(surplus_per_step_prediction, horizon, N, step, predi
     return E_total_prediction_step
 
 
-def calc_E_surplus_prediction(E_total_prediction_step, horizon, N, step, prediction_range):
+def calc_E_surplus_prediction(E_prediction_step, horizon, N, prediction_range, step):
     """ atm this is linear weighted. I would make sense to make closer values more important/heavier weighted,
         then; for faster response it is important to act on shorter-term prediction"""
     E_surplus_prediction = 0
     for steps in range(horizon):
-        E_surplus_prediction += E_total_prediction_step[steps]
+        E_surplus_prediction += E_prediction_step[steps]
     """linear defined E_surplus_prediction_over_horizon"""
     E_surplus_prediction_avg = E_surplus_prediction/horizon
     return E_surplus_prediction_avg
 
 
 def calc_w_prediction():
-    w_prediction = 1
+    w_prediction = 0.5
     return w_prediction
 
 

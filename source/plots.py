@@ -205,6 +205,30 @@ def plot_avg_soc_preferred(soc_preferred_list_over_time, avg_soc_preferred_over_
     ax1.legend()
 
     plt.show()
+
+def plot_supply_demand(surplus_in_grid_over_time, demand_in_grid_over_time, N):
+
+    fig_supply_demand = plt.figure()
+    ax1 = fig_supply_demand.add_subplot(211)
+    ax2 = fig_supply_demand.add_subplot(212)
+
+    total_surplus = sum(surplus_in_grid_over_time)
+    total_demand = sum(demand_in_grid_over_time)
+
+    for agent in range(N):
+        ax1.plot(surplus_in_grid_over_time, label='surplus of agent ' + str(int(agent)))
+        ax2.plot(demand_in_grid_over_time, label='demand of agent ' + str(int(agent)))
+
+    ax1.plot(total_surplus, label='total surplus')
+    ax2.plot(total_demand, label='total demand')
+    ax1.legend()
+    ax2.legend()
+
+    plt.suptitle('Supply vs Demand')
+    plt.show
+
+
+
 """ TODO 
 
 prediction analyseren
