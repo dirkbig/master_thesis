@@ -34,11 +34,11 @@ timestep = 5
 days = 5
 
 
-step_time = 10
+step_time = 5
 total_steps = step_day*days
 sim_steps = int(total_steps/step_time)
 
-N = 5                                  # N agents only
+N = 12                             # N agents only
 step_list = np.zeros([sim_steps])
 
 c_S = 10                                             # c_S is selling price of the microgrid
@@ -123,7 +123,7 @@ class HouseholdAgent(Agent):
 
         """agent characteristics"""
         self.id = unique_id
-        self.battery_capacity_n = 1000                           # every household has an identical battery, for now
+        self.battery_capacity_n = 3000                         # every household has an identical battery, for now
         self.pv_generation = random.uniform(0, 1)               # random.choice(range(15)) * pvgeneration
         self.consumption = random.uniform(0, 1)                 # random.choice(range(15)) * consumption
         self.classification = []
@@ -182,7 +182,7 @@ class HouseholdAgent(Agent):
 
         """real time data"""
         self.consumption = big_data_file_per_step[self.id, 0]           # import load file
-        self.pv_generation = big_data_file_per_step[self.id, 1]        # import generation file
+        self.pv_generation = big_data_file_per_step[self.id, 1]       # import generation file
 
         """ agents personal prediction, can be different per agent (difference in prediction quality?)"""
         self.horizon_agent = min(self.max_horizon, sim_steps - self.current_step)  # including current step
@@ -340,6 +340,9 @@ class MicroGrid(Model):
             agent = HouseholdAgent(e, self)
             self.agents.append(agent)
 
+        """ Deals """
+        self.supply_deals = np.zeros(N)
+
     def step(self):
 
         """Environment proceeds a step after all agents took a step"""
@@ -379,8 +382,16 @@ class MicroGrid(Model):
                 self.E_total_surplus += agent.E_j_surplus                               # does not change by optimization
                 agent.E_j_supply = agent.E_j_surplus * agent.w_j_storage_factor
                 self.E_total_supply_list[agent.id] = agent.E_j_supply     # does change by optimization
+
             else:
                 self.passive_pool.append(agent.id)
+
+
+        if np.any(np.isnan(self.E_total_supply_list)):
+            print("some supply is NaN!?")
+            for agent in self.agents[:]:
+                if np.isnan(self.E_total_supply_list[agent.id]):
+                    self.E_total_supply_list[agent.id] = 0
 
 
         self.E_total_supply = sum(self.E_total_supply_list)
@@ -426,6 +437,7 @@ class MicroGrid(Model):
                     if agent.classification == 'buyer':
                         """preparation for update"""
                         prev_bid = agent.c_i_bidding_price
+                        self.E_total_supply = sum(self.E_total_supply_list)
                         agent.bidding_prices_others = bidding_prices_others(self.c_bidding_prices, agent.c_i_bidding_price)
                         agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
                         self.E_allocation_per_agent[agent.id] = agent.E_i_allocation
@@ -604,6 +616,9 @@ class MicroGrid(Model):
                         """ Update on values"""
                         agent.E_j_supply = agent.E_j_surplus * agent.w_j_storage_factor
                         self.E_total_supply_list[agent.id] = agent.E_j_supply
+                        if self.E_total_supply_list[agent.id] <= 0 or np.isnan(self.E_total_supply_list[agent.id]):
+                            self.E_total_supply_list[agent.id] = 0
+
                         self.E_total_supply = sum(self.E_total_supply_list)
                         agent.E_supply_others = sum(self.E_total_supply_list) - self.E_total_supply_list[agent.id]
                         self.w_storage_factors[agent.id] = agent.w_j_storage_factor
@@ -619,18 +634,16 @@ class MicroGrid(Model):
                         agent.w_j_storage_factor = 0
 
 
-                self.E_total_supply = 0
+                self.E_total_supply = sum(self.E_total_supply_list)
+
                 self.E_demand = 0
-
-
                 for agent in self.agents[:]:
-                    self.E_total_supply += calc_supply(agent.pv_generation, agent.w_j_storage_factor)
                     self.E_demand += agent.E_i_demand
                     # self.R_total_end = self.E_total_supply * self.c_nominal
                 for agent in self.agents[:]:
-                    agent.E_supply_others = self.E_total_supply - (agent.E_j_surplus * agent.w_j_storage_factor)
+                    agent.E_supply_others = sum(self.E_total_supply_list) - self.E_total_supply_list[agent.id]
 
-                self.w_nominal = self.E_total_supply / self.E_total_surplus
+                self.w_nominal = sum(self.E_total_supply_list) / self.E_total_surplus
 
                 epsilon_sellers_game = max(abs(tolerance_sellers))
                 if epsilon_sellers_game < 0.01:
@@ -658,6 +671,7 @@ class MicroGrid(Model):
                 for agent in self.agents[:]:
                     if agent.classification == 'buyer':
                         agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
+                        self.supply_deals[agent.id] = agent.E_i_allocation
                         agent.soc_influx = agent.E_i_allocation - agent.E_i_demand
                         if agent.soc_actual + agent.soc_influx < 0.01:
                             print("agent %d battery depleted" % agent.id)
@@ -675,9 +689,8 @@ class MicroGrid(Model):
                         agent.soc_actual += agent.soc_influx
                     self.actual_batteries[agent.id] = agent.soc_actual
                 self.battery_soc_total = sum(self.actual_batteries)
+
                 break
-
-
 
 
         """ This is still vague """
@@ -688,6 +701,8 @@ class MicroGrid(Model):
             self.E_total_stored += agent.stored
 
         """ Update time """
+
+
         self.steps += 1
         self.time += 1
 

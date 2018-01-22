@@ -171,7 +171,12 @@ def get_preferred_soc_new(batt_capacity_agent, soc_preferred, E_prediction):
 
 
 def allocation_i(E_total_supply,c_i_bidding_price, c_bidding_prices_others):
-    E_i_allocation = E_total_supply * (c_i_bidding_price / (c_bidding_prices_others + c_i_bidding_price))
+    try:
+        E_i_allocation = E_total_supply * (c_i_bidding_price / (c_bidding_prices_others + c_i_bidding_price))
+    except RuntimeWarning:
+        E_i_allocation = 0
+    # if c_i_bidding_price <= 0 or np.isnan(c_i_bidding_price):
+    #     E_i_allocation = 0
     return E_i_allocation
 
 
@@ -217,7 +222,11 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
 
         """self designed parametric utility function"""
         """ Closing the gap vs costs for closing the gap"""
-        return (abs(E_i_opt - E_j_opt * c_i / (c_l_opt + c_i)))**lambda11 + (c_i * E_j_opt * (c_i/(c_l_opt + c_i)))**lambda12
+
+        try:
+            return (abs(E_i_opt - E_j_opt * c_i / (c_l_opt + c_i)))**lambda11 + (c_i * E_j_opt * (c_i/(c_l_opt + c_i)))**lambda12
+        except RuntimeWarning:
+            return 0
 
         # return (x1 - (x0 * (x3/(x2 + x3))))**lambda11 + (x3 * x0 * (x3/(x2 + x3)))**lambda12
 
@@ -312,9 +321,11 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
     def utility_seller(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt, E_j_p_opt):
 
         """New Utility"""
-        return - (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21 \
+        try:
+            return - (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21 \
                - (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22
-
+        except RuntimeWarning:
+            return 0
     # def constraint_param_seller0(x):
     #     return Ej_global_sellers - x[0]
     #
@@ -385,8 +396,15 @@ def calc_R_prediction(R_total, big_data_file, horizon, agents, steps):
         gap[i] = abs(sum(gap_per_agent))
         E_predicted_total[i] = sum(E_predicted_per_agent)
 
-    alpha = gap[0]**0.5/(sum(gap**0.5/horizon))
-    beta = E_predicted_total[0]**0.5/(sum(E_predicted_total**0.5/horizon))
+    try:
+        alpha = gap[0]**0.5/(sum(gap**0.5/horizon))
+    except RuntimeWarning:
+        alpha = 0
+    try:
+        beta = E_predicted_total[0]**0.5/(sum(E_predicted_total**0.5/horizon))
+    except RuntimeWarning:
+        beta = 0
+
     R_prediction = alpha * beta * R_total
     # print("[alpha, beta] = ", [alpha, beta])
 
@@ -447,6 +465,7 @@ else:
 
 """error/test functions"""
 
-
+def isNaN(num):
+    return num != num
 
 
