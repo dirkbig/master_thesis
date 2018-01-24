@@ -28,17 +28,17 @@ noise = np.random.normal(0, 1, 100)
 
 """All starting parameters are initialised"""
 starting_point = 0
-stopping_point = 7000 - starting_point - 5000
+stopping_point = 7000 - starting_point - 2000
 step_day = 1440
 timestep = 5
 days = 5
 
 
-step_time = 5
+step_time = 10
 total_steps = step_day*days
 sim_steps = int(total_steps/step_time)
 
-N = 12                             # N agents only
+N = 7                            # N agents only
 step_list = np.zeros([sim_steps])
 
 c_S = 10                                             # c_S is selling price of the microgrid
@@ -663,7 +663,7 @@ class MicroGrid(Model):
             tolerance_supply = abs(supply_new - supply_old)
             epsilon_c_nominal = abs(tolerance_c_nominal)
             print("GLOBAL: e c_n = %f and e supply = %f" % (epsilon_c_nominal, tolerance_supply))
-            if (epsilon_c_nominal < 10 and tolerance_supply < 10) or iteration_global > 10:
+            if (epsilon_c_nominal < 10 and tolerance_supply < 0.1) or iteration_global > 10:
                 print("GLOBAL: optimization of round %d has been completed in %d iterations with e = %f!!" % (self.steps, iteration_global, tolerance_supply))
                 print("GLOBAL: total surplus =", self.E_total_surplus, "supplied =", self.E_total_supply)
 

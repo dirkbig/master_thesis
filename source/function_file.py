@@ -12,8 +12,8 @@ from scipy.optimize import minimize
 
 
 global lambda11, lambda12, lambda21, lambda22
-lambda11 = 0.5
-lambda12 = 3
+lambda11 = 2
+lambda12 = 0.5
 lambda21 = 2
 lambda22 = 2.2
 
@@ -129,8 +129,9 @@ def calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bid
     utility_i = (abs(E_i_demand - E_i_allocation))**lambda11 + (c_i_bidding_price * E_i_allocation)**lambda12
 
     demand_gap = abs(E_i_demand - E_i_allocation)
-    utility_demand_gap  = demand_gap**lambda11
+    utility_demand_gap  = (abs(E_i_demand - E_i_allocation))**lambda11
     utility_costs       = (c_i_bidding_price * E_i_allocation)**lambda12
+
     return utility_i, demand_gap, utility_demand_gap, utility_costs
 
 
@@ -384,29 +385,38 @@ def calc_R_prediction(R_total, big_data_file, horizon, agents, steps):
     E_predicted_total = np.zeros(horizon)
 
     def weight_filter(horizon, distance):
+        """ makes distant predictions weight heavier or lighter"""
         return
 
     """calculate gap between load and (local) production"""
     for i in range(horizon):
         # weight_on_value = weight_filter(horizon, distance)
         for agent in agents[:]:
+            """ Looks at the demand of each agent in the microgrid """
             gap_per_agent[agent.id] = big_data_file[steps + i][agent.id][0] - big_data_file[steps + i][agent.id][1]
+            """ Looks at generation per household in the microgrid """
             E_predicted_per_agent[agent.id] = big_data_file[steps + i][agent.id][1]
 
-        gap[i] = abs(sum(gap_per_agent))
+        """ absolute value of gap between production and consumption"""
+        gap[i] = sum(gap_per_agent)
+        if gap[i] < 0:
+            gap[i] = 0
         E_predicted_total[i] = sum(E_predicted_per_agent)
 
+    """ alpha looks at the future availability of energy in the system: predicted surplus"""
     try:
         alpha = gap[0]**0.5/(sum(gap**0.5/horizon))
     except RuntimeWarning:
         alpha = 0
+    """ beta looks at """
     try:
-        beta = E_predicted_total[0]**0.5/(sum(E_predicted_total**0.5/horizon))
+        beta = E_predicted_total[0]**0.5/(sum(E_predicted_total**0.5)/horizon)
     except RuntimeWarning:
         beta = 0
 
-    R_prediction = alpha * beta * R_total
-    # print("[alpha, beta] = ", [alpha, beta])
+    """ test which one works better"""
+    R_prediction =  (beta * R_total + alpha * R_total)/2
+    # R_prediction =  beta * alpha * R_total
 
     return R_prediction, alpha, beta
 
@@ -454,6 +464,36 @@ def Peukerts_law():
 
 
 
+""" Functions specific to Validation algorithm"""
+
+def utility_i_validation(E_opt, c_others_opt, c_i_opt):
+
+    def utility_function_i_validation(c_i, E, c_others):
+        return  E * c_i / sum(c_others + c_i) -  (E * c_i / sum(c_others + c_i)) * c_i
+
+    bounds_buyer = 0,1
+    init = c_i_opt
+    sol_i_validation= minimize(lambda c : utility_function_i_validation(c_i_opt, E_opt, c_others_opt), init, method='SLSQP', bounds=bounds_buyer)  # bounds=bounds, constraints=cons_seller
+
+    return sol_i_validation
+
+
+
+def utility_j_validation(E_j_opt, gamma_j_opt, R_j_opt, w_j_val):
+
+    def utility_function_j_validation(w_j, E_j, gamma_j, R, E):
+
+        return np.log(1 + E_j * (1 - w_j)) + gamma_j * R * E_j * w_j / E
+
+    bounds_seller = 0,1
+    init = w_j_val
+    sol_j_validation= minimize(lambda w_val : utility_function_j_validation(w_val, E_j_opt, gamma_j_opt, R_j_opt), init, method='SLSQP', bounds=bounds_seller)  # bounds=bounds, constraints=cons_seller
+
+    return sol_j_validation, sol_j_validation.x[4]
+
+
+
+
 """testing c_i within domain C_i
 if c_i_price_vector in possible_c_i:
     print("all fine")
@@ -467,5 +507,8 @@ else:
 
 def isNaN(num):
     return num != num
+
+
+
 
 

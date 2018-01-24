@@ -4,6 +4,17 @@ import os
 if stopping_point > total_steps:
     sys.exit("stopping point should be within bounds of the day")
 
+""" Prelim"""
+
+
+Fs = sim_steps
+f = 20
+sample = sim_steps
+sine_wave_consumption_series = np.zeros(sim_steps)
+sine_constant = 1
+for i in range(sim_steps):
+    sine_wave_consumption_series[i] = sine_constant + 0.7 * np.sin(np.pi * f * i / Fs - 1 * np.pi)
+
 
 """Read in actual data specific to actual agent: this is OK (using open-source data)"""
 load_file_agents = np.zeros((N, days, step_day))
@@ -64,34 +75,11 @@ for i in range(len(usable)):                # i is the agent id, this loop loops
 #         production_file_agents[i][day] = production_file_agents[i][day]/np.mean(production_file_agents[i][day])
 
 for i in range(N):
-        load_file_agents[i] = load_file_agents[i] / np.mean(load_file_agents[i])
-        production_file_agents[i] = production_file_agents[i]/np.mean(production_file_agents[i])
+         load_file_agents[i] = load_file_agents[i] / np.mean(load_file_agents[i])
+#         production_file_agents[i] = production_file_agents[i]/np.mean(production_file_agents[i])
 
 load_file_agents.resize((N, total_steps))
 production_file_agents.resize((N, total_steps))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # """The long list of data per step"""
@@ -249,14 +237,7 @@ for i in range(N):
 # plt.show()
 
 
-
-
-
-
-
 """Assigns all agents initial load and production prediction for the day"""
-
-
 sim_steps = int(total_steps/step_time)
 big_data_file = np.zeros((int(total_steps/step_time), N, 3))             # list of data_file entries per agents
 #
@@ -275,27 +256,13 @@ for agent in range(N):
         load_file_agents_time_med[agent][step] = np.median(load_file_agents[agent][step_time * step:(step_time * step + step_time)]) / step_time
         production_file_agents_time_med[agent][step] = np.median(production_file_agents[agent][step_time * step:(step_time * step + step_time)]) / step_time
 
-
-#
-# for i in range(N):
-#     # plt.plot(load_file_agents_time[i])
-#     plt.plot(production_file_agents_time[i])
-#     plt.plot(load_file_agents_time[i])
-#     plt.show()
-
-
-
-
-
-
-
 for step in range(sim_steps):
     for agent in range(N):
-        big_data_file[step][agent][0] = load_file_agents_time[agent][step]
+        big_data_file[step][agent][0] = load_file_agents_time[agent][step]**0.5 * sine_wave_consumption_series[step]
         big_data_file[step][agent][1] = production_file_agents_time[agent][step]
 
 
-
+load, production, load_series_total, production_series_total = plot_input_data(big_data_file,sim_steps, N)
 
 """Model creation"""
 model_testrun = MicroGrid(N, big_data_file, starting_point)        # create microgrid model with N agents
@@ -326,6 +293,8 @@ E_total_supply_over_time = np.zeros(sim_steps)
 E_demand_over_time = np.zeros(sim_steps)
 avg_soc_preferred_over_time = np.zeros(sim_steps)
 soc_preferred_list_over_time = np.zeros((N, sim_steps))
+
+plot_C_P(load_series_total, production_series_total)
 
 """Run that fucker"""
 for i in range(sim_steps):
@@ -378,7 +347,9 @@ for i in range(sim_steps):
         break
 
 
-"""DATA PROCESSING"""
+
+
+"""DATA PROCESSING, oftewel plots"""
 
 plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_real_over_time, R_real_over_time, c_nominal_over_time)
 plot_results(mean_sharing_factors, supplied_over_time_list, demand_over_time, c_nominal_over_time,number_of_buyers_over_time,number_of_sellers_over_time)
@@ -387,7 +358,14 @@ plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, sim_s
 plot_supplied_vs_surplus_total(surplus_on_step_over_time, supplied_on_step_over_time, demand_on_step_over_time)
 
 
+plot_input_data(big_data_file, sim_steps, N)
+# plot_avg_soc_preferred(soc_preferred_list_over_time, avg_soc_preferred_over_time)
 
-plot_avg_soc_preferred(soc_preferred_list_over_time, avg_soc_preferred_over_time)
 print("done, nu echt")
 
+
+
+""" Run validation """
+
+for i in range(sim_steps):
+    pass

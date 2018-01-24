@@ -228,7 +228,63 @@ def plot_supply_demand(surplus_in_grid_over_time, demand_in_grid_over_time, N):
     plt.show
 
 
+def plot_input_data(big_data_file, sim_steps,N):
 
+    fig_input_data = plt.figure()
+    ax1 = fig_input_data.add_subplot(311)
+    ax2 = fig_input_data.add_subplot(312)
+    ax3 = fig_input_data.add_subplot(313)
+
+    load_series = np.zeros(sim_steps)
+    production_series = np.zeros(sim_steps)
+
+    load_series_total = np.zeros(sim_steps)
+    production_series_total = np.zeros(sim_steps)
+
+    for agent in range(N):
+        max_consumption = max(big_data_file[:][agent][0])
+
+        for i in range(sim_steps):
+            load_series[i] = big_data_file[i][agent][0]
+            production_series[i] = big_data_file[i][agent][1]
+
+        for i in range(sim_steps):
+            load_series_total[i] += load_series[i]
+            production_series_total[i] += production_series[i]
+
+        ax1.plot(load_series, label='load of agent' + str(int(agent)))
+        ax2.plot(production_series, label='production of agent' + str(int(agent)))
+
+    ax3.plot(load_series_total, label='total production')
+    ax3.plot(production_series_total, label='total production')
+
+    ax1.legend()
+    ax2.legend()
+
+    plt.suptitle('Supply vs Demand')
+    # plt.show()
+
+
+    load = sum(load_series_total)
+    production = sum(production_series_total)
+
+    return load, production, load_series_total, production_series_total
+
+
+def plot_C_P(load_series_total, production_series_total):
+    fig_total_P_C = plt.figure(figsize=(20,5))
+    plt.plot(load_series_total, label='total production')
+    plt.plot(production_series_total, label='total production')
+
+    x_position = [1,2,3,4,5]
+    for i in range(len(x_position)):
+        plt.axvline(x_position[i]*144, color='k', linestyle='--', alpha=0.3)
+
+    plt.legend()
+    plt.suptitle('Total Production vs. Consumption')
+    fig_total_P_C.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_total_P_C.pdf', bbox_inches='tight')  # save the figure to file
+
+    return
 """ TODO 
 
 prediction analyseren
