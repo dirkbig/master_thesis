@@ -7,39 +7,46 @@ def plot_E_total_surplus_prediction_per_step(E_total_surplus_prediction_per_step
     return
 
 
-def plot_results(mean_sharing_factors, supply_over_time_list, demand_over_time, c_nominal_over_time, buyers, sellers):
-    plt.subplot(4, 1, 1)
-    plt.plot(supply_over_time_list, label="supply_over_time_list")
-    plt.plot(demand_over_time, label="demand_over_time")
-    plt.title('supply/demand over time')
-    plt.legend()
-
-    plt.subplot(4, 1, 2)
-    plt.plot(mean_sharing_factors, label="mean_sharing_factors")
-    plt.title('mean sharing factor per step')
-    plt.legend()
-
-
-    plt.subplot(4, 2, 1)
-    plt.plot(c_nominal_over_time, label="c_nominal_over_time")
-    plt.title('bidding price over time')
-    plt.legend()
-
-    plt.subplot(4, 2, 2)
-    plt.plot(buyers, label="buyers")
-    plt.plot(sellers, label="sellers")
-    plt.title('sellers/buyers pool')
-    plt.legend()
-
-    plt.suptitle('Results')
-    plt.show()
-
 def plot_prediction(means_surplus, means_load):
     # plt.title('mean of surplus and load')
     # plt.plot(means_surplus)
     # plt.plot(means_load)
     # plt.show
     return
+
+
+def plot_results(mean_sharing_factors, supply_over_time_list, demand_over_time, c_nominal_over_time, buyers, sellers):
+
+    fig_control_values = plt.figure(figsize=(10,7))
+    ax1 = fig_control_values.add_subplot(221)
+    ax2 = fig_control_values.add_subplot(224)
+    ax3 = fig_control_values.add_subplot(223)
+    ax4 = fig_control_values.add_subplot(222)
+
+
+    ax1.plot(supply_over_time_list, label="supply_over_time_list")
+    ax1.plot(demand_over_time, label="demand_over_time")
+    ax1.set_title('supply/demand over time')
+
+    ax2.plot(mean_sharing_factors, label="mean_sharing_factors")
+    ax2.set_title('mean sharing factor per step')
+
+    ax3.plot(c_nominal_over_time, label="c_nominal_over_time")
+    ax3.set_title('bidding price over time')
+
+    ax4.plot(buyers, label="buyers")
+    ax4.plot(sellers, label="sellers")
+    ax4.set_title('sellers/buyers pool')
+
+    ax1.legend()
+    ax2.legend()
+    ax3.legend()
+    ax4.legend()
+
+
+    plt.suptitle('Results')
+    fig_control_values.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_control_values.pdf', bbox_inches='tight')  # save the figure to file
+
 
 def plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_real_over_time, R_real_over_time, c_nominal):
     """w_nominal against predicted energy and predicted revenue"""
@@ -49,8 +56,8 @@ def plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_pr
     E_real_over_time_normalised = E_real_over_time/max(E_real_over_time)
     R_real_over_time_normalised = R_real_over_time/max(R_real_over_time)
 
-    fig1 = plt.figure()
-    ax1 = fig1.add_subplot(211)
+    fig_w_nominal_progression = plt.figure(figsize=(10,10))
+    ax1 = fig_w_nominal_progression.add_subplot(211)
     ax1.plot(w_nominal_over_time, label='w_nominal')
     ax1.plot(E_prediction_over_time, label='E_prediction (weighted)')
     ax1.plot(c_nominal, label='c_nominal')
@@ -59,7 +66,7 @@ def plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_pr
     ax1.legend()
 
 
-    ax2 = fig1.add_subplot(212)
+    ax2 = fig_w_nominal_progression.add_subplot(212)
     ax2.plot(w_nominal_over_time, label='w_nominal')
     ax2.plot(R_prediction_over_time, label='R_prediction (weighted)')
     ax2.plot(R_real_over_time, label='R_real')
@@ -67,8 +74,6 @@ def plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_pr
     ax2.legend()
 
     plt.suptitle('Normalised data on trading')
-    #plt.subplots_adjust(left=0.2, wspace=0.8, top=0.8)
-    plt.show()
 
     """normalised"""
     # fig1 = plt.figure()
@@ -89,14 +94,12 @@ def plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_pr
     #
     # plt.suptitle('Normalised data on trading')
     # #plt.subplots_adjust(left=0.2, wspace=0.8, top=0.8)
-    # plt.show()
+    fig_w_nominal_progression.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_w_nominal_progression.pdf', bbox_inches='tight')  # save the figure to file
 
-
-    # fig.savefig(file_name, bbox_inches='tight')
 
 def plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_time, E_demand_over_time, N):
 
-    fig_available_vs_supplied = plt.figure()
+    fig_available_vs_supplied = plt.figure(figsize=(10,7))
     ax1 = fig_available_vs_supplied.add_subplot(211)
     ax1.plot(E_demand_over_time, label='Demanded by buyers')
     ax1.plot(E_total_supply_over_time, label='Supplied by sellers')
@@ -109,12 +112,13 @@ def plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_t
     batt_soc_ax2.set_title('State-of-Charge batteries per agent')
     batt_soc_ax2.legend()
 
-    plt.suptitle('Battery business')
-    plt.show()
+    plt.suptitle('battery business')
+    fig_available_vs_supplied.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_available_vs_supplied.pdf', bbox_inches='tight')  # save the figure to file
+
 
 def plot_supplied_vs_surplus_total(surplus_on_step_over_time, supplied_on_step_over_time, demand_on_step_over_time):
 
-    fig_supplied_vs_surplus_total = plt.figure()
+    fig_supplied_vs_surplus_total = plt.figure(figsize=(10,7))
 
     ax1 = fig_supplied_vs_surplus_total.add_subplot(211)
     ax1.plot(surplus_on_step_over_time, label='surplus energy in the system')
@@ -123,26 +127,90 @@ def plot_supplied_vs_surplus_total(surplus_on_step_over_time, supplied_on_step_o
     ax1.legend()
     ax1.set_title('energy availability')
 
+    fig_supplied_vs_surplus_total.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_supplied_vs_surplus_total.pdf', bbox_inches='tight')  # save the figure to file
+
+def plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_total_demand_over_time, E_surplus_over_time, E_total_supply, c_nominal_over_time, N, steps):
+
+    utilities_buyers_total_series = np.zeros(steps)
+    utilities_buyers_demand_gap_series = np.zeros(steps)
+    utilities_buyers_costs_series = np.zeros(steps)
+
+    fig_buyers = plt.figure(figsize=(10,7))
+    ax1 = fig_buyers.add_subplot(311)
+
+    for agent in range(N):
+
+        for i in range(steps):
+            utilities_buyers_total_series[i] = utilities_buyers_over_time[i][agent][0]
+            utilities_buyers_demand_gap_series[i] = utilities_buyers_over_time[i][agent][2]
+            utilities_buyers_costs_series[i] = utilities_buyers_over_time[i][agent][3]
+
+        ax1.plot(utilities_buyers_total_series, label='Utility buyers total')
+        ax1.plot(utilities_buyers_demand_gap_series, label='Utility buyers demand gap')
+        ax1.plot(utilities_buyers_costs_series, label='Utility buyers costs')
+    ax1.set_title('plotted utility buyers')
+
+    ax2 = fig_buyers.add_subplot(312)
+    ax2.plot(c_nominal_over_time, label="c_nominal_over_time")
+    ax2.set_title('bidding price over time')
+
+    ax3 = fig_buyers.add_subplot(313)
+    for agent in range(N):
+        E_demand_agent_series = np.zeros(steps)
+        for i in range(steps):
+            E_demand_agent_series[i] =  E_total_demand_over_time[agent][i]
+
+        ax3.plot(E_demand_agent_series, label="E_demand per agent")
+    ax3.set_title('energy demand over time')
+
+    ax1.legend()
+    ax2.legend()
+    ax3.legend()
+
+    plt.suptitle('utility buyer')
+    fig_buyers.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_buyers.pdf', bbox_inches='tight')  # save the figure to file
+
+    plt.show()
+
+def plot_utility_seller(utilities_buyers_over_time, c_nominal_over_time, demand_in_grid_over_time, N, steps):
+
+    utilities_buyers_total_series = np.zeros(steps)
+    utilities_buyers_demand_gap_series = np.zeros(steps)
+    utilities_buyers_costs_series = np.zeros(steps)
+
+    fig_buyers = plt.figure(figsize=(10,7))
+    ax1 = fig_buyers.add_subplot(311)
+
+    for agent in range(N):
+
+        for i in range(steps):
+            utilities_buyers_total_series[i] = utilities_buyers_over_time[i][agent][0]
+            utilities_buyers_demand_gap_series[i] = utilities_buyers_over_time[i][agent][2]
+            utilities_buyers_costs_series[i] = utilities_buyers_over_time[i][agent][3]
+
+        ax1.plot(utilities_buyers_total_series, label='Utility buyers total')
+        ax1.plot(utilities_buyers_demand_gap_series, label='Utility buyers demand gap')
+        ax1.plot(utilities_buyers_costs_series, label='Utility buyers costs')
+    ax1.set_title('plotted utility buyers')
+
+    ax2 = fig_buyers.add_subplot(312)
+    ax2.plot(c_nominal_over_time, label="c_nominal_over_time")
+    ax2.set_title('bidding price over time')
+
+    ax3 = fig_buyers.add_subplot(313)
+    ax3.plot(demand_in_grid_over_time, label="E_demand")
+    ax3.set_title('energy demand over time')
+
+    ax1.legend()
+    ax2.legend()
+    ax3.legend()
+
+    plt.suptitle('utility buyer')
     plt.show()
 
 
 
-
 def plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, steps): #utility_buyers_over_time[N][3][sim_steps]
-
-
-    utilities_buyers_over_time_series = np.zeros(len(utilities_buyers_over_time))
-
-    # for i in range(len(utilities_buyers_over_time)):
-    #     utilities_buyers_over_time_series[i] = utilities_buyers_over_time
-
-    # mean_direct_utility_over_agents = np.zeros(len())
-    # mean_predicted_utility_over_agents
-    #
-    # for i in len(utilities_sellers_over_time):
-    #     for agent in range(N):
-    #         mean_direct_utility_over_agents[i] = sum(utilities_sellers_over_time[agent][3][i])/N
-    #         mean_predicted_utility_over_agents[i] = sum(utilities_sellers_over_time[agent][2][i])/N
 
     utilities_sellers_over_time_1 = np.zeros(steps)
     utilities_sellers_over_time_2 = np.zeros(steps)
@@ -152,32 +220,31 @@ def plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, s
     utilities_buyers_demand_gap_series = np.zeros(steps)
     utilities_buyers_costs_series = np.zeros(steps)
 
-
-    # print(np.shape(utilities_sellers_over_time))
-    fig_utilities = plt.figure()
+    fig_utilities = plt.figure(figsize=(10,7))
 
     ax1 = fig_utilities.add_subplot(211)
-    for agent in range(N-3):
-
+    for agent in range(N):
+        """[agent.utility_j, prediction_utility, direct_utility]"""
         for i in range(steps):
-            utilities_sellers_over_time_1[i] = utilities_sellers_over_time[i][agent][0]
-            utilities_sellers_over_time_2[i] = utilities_sellers_over_time[i][agent][1]
-            utilities_sellers_over_time_3[i] = utilities_sellers_over_time[i][agent][2]
+            utilities_sellers_over_time_1[i] = utilities_sellers_over_time[i][agent][0] # utility_j
+            utilities_sellers_over_time_2[i] = utilities_sellers_over_time[i][agent][1] # prediction_utility
+            utilities_sellers_over_time_3[i] = utilities_sellers_over_time[i][agent][2] # direct_utility
 
         # ax1.plot(utilities_sellers_over_time_1, label='Utility sellers total' + str(int(agent)))
         # ax1.plot(utilities_sellers_over_time_2, label='Utility sellers prediction part' + str(int(agent)))
         # ax1.plot(utilities_sellers_over_time_3, label='Utility sellers direct part' + str(int(agent)))
 
-        ax1.plot(utilities_sellers_over_time_1 - utilities_sellers_over_time_3, label='Utility sellers total' + str(int(agent)))
+        ax1.plot(utilities_sellers_over_time_1, label='Utility sellers total' + str(int(agent)))
 
         # ax1.plot(utilities_sellers_over_time[:][agent][1], label='Utility sellers total' + str(int(agent)))
         # ax1.plot(utilities_sellers_over_time[:][agent][2], label='Utility sellers prediction part' + str(int(agent)))
         # ax1.plot(utilities_sellers_over_time[:][agent][3], label='Utility sellers direct part' + str(int(agent)))
+
     ax1.set_title('plotted utility sellers')
     ax1.legend()
 
     ax2 = fig_utilities.add_subplot(212)
-    for agent in range(N-3):
+    for agent in range(N):
 
         for i in range(steps):
             utilities_buyers_total_series[i] = utilities_buyers_over_time[i][agent][0]
@@ -191,24 +258,23 @@ def plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, s
     ax2.legend()
 
     plt.suptitle('Utility values Buyers/Sellers')
-    plt.show()
+    fig_utilities.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_utilities_both.pdf', bbox_inches='tight')  # save the figure to file
 
     # ax2 = fig_utilities.add.subplot(212)
 
 def plot_avg_soc_preferred(soc_preferred_list_over_time, avg_soc_preferred_over_time):
 
-    fig_soc_preferred = plt.figure()
-    ax1 = fig_soc_preferred.add_subplot(211)
-
+    fig_soc_preferred = plt.figure(figsize=(10,5))
+    ax1 = fig_soc_preferred.add_subplot(111)
 
     ax1.plot(avg_soc_preferred_over_time, label='average soc over time')
     ax1.legend()
 
-    plt.show()
+    fig_soc_preferred.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_soc_preferred.pdf', bbox_inches='tight')  # save the figure to file
 
 def plot_supply_demand(surplus_in_grid_over_time, demand_in_grid_over_time, N):
 
-    fig_supply_demand = plt.figure()
+    fig_supply_demand = plt.figure(figsize=(10,10))
     ax1 = fig_supply_demand.add_subplot(211)
     ax2 = fig_supply_demand.add_subplot(212)
 
@@ -225,12 +291,12 @@ def plot_supply_demand(surplus_in_grid_over_time, demand_in_grid_over_time, N):
     ax2.legend()
 
     plt.suptitle('Supply vs Demand')
-    plt.show
+    fig_supply_demand.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_supply_demand.pdf', bbox_inches='tight')  # save the figure to file
 
 
 def plot_input_data(big_data_file, sim_steps,N):
 
-    fig_input_data = plt.figure()
+    fig_input_data = plt.figure(figsize=(10,10))
     ax1 = fig_input_data.add_subplot(311)
     ax2 = fig_input_data.add_subplot(312)
     ax3 = fig_input_data.add_subplot(313)
@@ -258,11 +324,15 @@ def plot_input_data(big_data_file, sim_steps,N):
     ax3.plot(load_series_total, label='total production')
     ax3.plot(production_series_total, label='total production')
 
-    ax1.legend()
-    ax2.legend()
+
+
+    ax1.set_title('consumption per agent')
+    ax2.set_title('production per agent')
+    ax3.set_title('total production and total consumption')
+    ax3.legend()
 
     plt.suptitle('Supply vs Demand')
-    # plt.show()
+    fig_input_data.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_input_data.pdf', bbox_inches='tight')  # save the figure to file
 
 
     load = sum(load_series_total)
@@ -285,6 +355,10 @@ def plot_C_P(load_series_total, production_series_total):
     fig_total_P_C.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_total_P_C.pdf', bbox_inches='tight')  # save the figure to file
 
     return
+
+
+
+
 """ TODO 
 
 prediction analyseren

@@ -293,8 +293,16 @@ E_total_supply_over_time = np.zeros(sim_steps)
 E_demand_over_time = np.zeros(sim_steps)
 avg_soc_preferred_over_time = np.zeros(sim_steps)
 soc_preferred_list_over_time = np.zeros((N, sim_steps))
+E_total_demand_over_time = np.zeros((N, sim_steps))
+c_prices_over_time = np.zeros((N, sim_steps))
+
+E_surplus_over_time = np.zeros((N, sim_steps))
+
 
 plot_C_P(load_series_total, production_series_total)
+
+
+
 
 """Run that fucker"""
 for i in range(sim_steps):
@@ -305,7 +313,8 @@ for i in range(sim_steps):
     R_prediction_step, E_prediction_step, E_real, R_real, \
     actual_batteries, E_total_supply, E_demand, \
     utilities_buyers, utilities_sellers, \
-    soc_preferred_list, avg_soc_preferred \
+    soc_preferred_list, avg_soc_preferred, \
+    E_total_demand_list, c_nominal_list, E_surplus_list \
         = model_testrun.step()
 
     # E_real == supplied_on_step
@@ -332,13 +341,15 @@ for i in range(sim_steps):
 
     for agent in range(N):
         actual_batteries_over_time[agent][i] = actual_batteries[agent]
-
+        E_total_demand_over_time[agent][i] = E_total_demand_list[agent]
+        c_prices_over_time[agent][i] = c_nominal_list[agent]
+        E_surplus_over_time[agent][i] = E_surplus_list[agent]
     utilities_sellers_over_time[i][:][:] = utilities_sellers
     utilities_buyers_over_time[i][:][:] = utilities_buyers
 
+    E_surplus_over_time
     E_total_supply_over_time[i] = E_total_supply
     E_demand_over_time[i] = E_demand
-
     # print(utilities_sellers, 'utilities_sellers')
     # print(utilities_sellers_over_time, 'utilities_sellers_over_time')
 
@@ -357,6 +368,9 @@ plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_time,
 plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, sim_steps)
 plot_supplied_vs_surplus_total(surplus_on_step_over_time, supplied_on_step_over_time, demand_on_step_over_time)
 
+
+plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_total_demand_over_time, E_surplus_over_time, E_total_supply, c_nominal_over_time, N, sim_steps)
+plot_utility_seller(utilities_sellers_over_time, w_prices_over_time, demand_in_grid_over_time, w_nominal_over_time, N, sim_steps)
 
 plot_input_data(big_data_file, sim_steps, N)
 # plot_avg_soc_preferred(soc_preferred_list_over_time, avg_soc_preferred_over_time)

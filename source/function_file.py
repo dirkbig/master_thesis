@@ -11,11 +11,13 @@ from scipy.optimize import minimize
 
 
 
-global lambda11, lambda12, lambda21, lambda22
-lambda11 = 2
-lambda12 = 0.5
-lambda21 = 2
-lambda22 = 2.2
+lambda11 = 1.5
+lambda12 = 1
+lambda21 = 1.5
+lambda22 = 1.3
+
+lambda_set = [lambda11, lambda12, lambda21, lambda22]
+
 
 """ DATA """
 
@@ -78,6 +80,10 @@ def read_csv_big_data(filename, duration):
         data_return = np.append(data_return, data_value)
         return data_return
 
+
+
+
+
 """ ALGORITHM """
 
 def define_pool(consumption_at_round, production_at_round, soc_gap, soc_surplus, charge_rate, discharge_rate):
@@ -108,7 +114,7 @@ def bidding_prices_others(c_bidding_prices, c_i_bidding_price):
     return bidding_prices_others_def
 
 
-def calc_supply(surplus_per_agent, w_j_storage_factor):             # E_j
+def calc_supply(surplus_per_agent, w_j_storage_factor):
     supply_per_agent = surplus_per_agent * w_j_storage_factor
     return supply_per_agent
 
@@ -119,20 +125,6 @@ def calc_R_j_revenue(R_total, E_j_supply, w_j_storage_factor, E_total_supply):
     return R_j
 
 
-def calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bidding_prices_others):
-    """This function calculates buyers utility"""
-    E_i_allocation = allocation_i(E_total_supply, c_i_bidding_price, c_bidding_prices_others)
-
-
-    """ I made demand-gap to be absolute, meaning also higher allocation than demand is a penalty... not more that logical since it
-        would be weird to need for 10 and to receive/passively buy 15 """
-    utility_i = (abs(E_i_demand - E_i_allocation))**lambda11 + (c_i_bidding_price * E_i_allocation)**lambda12
-
-    demand_gap = abs(E_i_demand - E_i_allocation)
-    utility_demand_gap  = (abs(E_i_demand - E_i_allocation))**lambda11
-    utility_costs       = (c_i_bidding_price * E_i_allocation)**lambda12
-
-    return utility_i, demand_gap, utility_demand_gap, utility_costs
 
 
 
@@ -172,12 +164,16 @@ def get_preferred_soc_new(batt_capacity_agent, soc_preferred, E_prediction):
 
 
 def allocation_i(E_total_supply,c_i_bidding_price, c_bidding_prices_others):
+
+    if c_i_bidding_price <= 0 or (c_bidding_prices_others + c_i_bidding_price) <= 0:
+        E_i_allocation = 0
+        return E_i_allocation
+
     try:
         E_i_allocation = E_total_supply * (c_i_bidding_price / (c_bidding_prices_others + c_i_bidding_price))
     except RuntimeWarning:
         E_i_allocation = 0
-    # if c_i_bidding_price <= 0 or np.isnan(c_i_bidding_price):
-    #     E_i_allocation = 0
+
     return E_i_allocation
 
 
@@ -186,8 +182,8 @@ def calc_gamma():
     """This function will ultimately predict storage weight
     This will involve some model predictive AI"""
 
+def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidding_price_i_prev, bidding_prices_others_opt, E_batt_available, SOC_gap_agent, lambda_set):
 
-def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidding_price_i_prev, bidding_prices_others_opt, E_batt_available, SOC_gap_agent):
     """Level 1 game: distributed optimization"""
 
     """globally declared variables, do not use somewhere else!!"""
@@ -213,7 +209,7 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
     # initial_conditions = [E_global_buyers, E_i_demand_global, c_l_global_buyers, c_i_global_buyers, beta, SOC_gap_global]
     # constants = [supply_on_step, E_i_demand, bidding_prices_others_opt, SOC_gap_agent]
     """ This is a MINIMIZATION of costs"""
-    def utility_buyer(c_i, E_i_opt, E_j_opt, c_l_opt):
+    def utility_buyer(c_i, E_i_opt, E_j_opt, c_l_opt, lambda11, lambda12):
         # x0 = x[0]       # E_global_buyers
         # x1 = x[1]       # E_i_demand_buyers_global
         # x2 = x[2]       # c_l_global_buyers
@@ -278,8 +274,11 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
 
     init = bidding_price_i_prev
 
+    lambda11 = lambda_set[0]
+    lambda12 = lambda_set[1]
+
     """optimize using SLSQP(?)"""
-    sol_buyer = minimize(lambda x : utility_buyer(x, E_i, E_j, c_l), init, method='SLSQP', bounds=bounds_buyer)
+    sol_buyer = minimize(lambda x : utility_buyer(x, E_i, E_j, c_l, lambda11, lambda12), init, method='SLSQP', bounds=bounds_buyer)
 
     # sol_buyer = minimize(utility_buyer, initial_conditions, method='SLSQP', bounds=bounds_buyer, constraints=cons)
     # print("optimization result is a bidding price of %f" % sol.x[3])
@@ -288,45 +287,32 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
     """return 4th element of solution vector."""
     return sol_buyer, sol_buyer.x[0]
 
+def calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bidding_prices_others, lambda_set):
+    """This function calculates buyers utility"""
+    E_i_allocation = allocation_i(E_total_supply, c_i_bidding_price, c_bidding_prices_others)
 
-def sellers_game_noBattery_optimization():
-    """ function without w_j is not even an optimization but """
-    pass
+    lambda11 = lambda_set[0]
+    lambda12 = lambda_set[1]
+    """ I made demand-gap to be absolute, meaning also higher allocation than demand is a penalty... not more that logical since it
+        would be weird to need for 10 and to receive/passively buy 15 """
+    utility_i = (abs(E_i_demand - E_i_allocation))**lambda11 + (c_i_bidding_price * E_i_allocation)**lambda12
 
+    demand_gap = abs(E_i_demand - E_i_allocation)
+    utility_demand_gap  = (abs(E_i_demand - E_i_allocation))**lambda11
+    utility_costs       = (c_i_bidding_price * E_i_allocation)**lambda12
 
+    return utility_i, demand_gap, utility_demand_gap, utility_costs
 
-def calc_utility_function_j(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller):
-    """This function calculates sellers utility"""
-
-    R_p_opt = R_prediction
-    E_j_opt = E_j_seller
-    w       = w_j_storage_factor
-    E_p_opt = E_supply_prediction
-    R_d_opt = R_direct
-    E_d_opt = E_supply_others
-    E_j_p_opt = E_j_prediction_seller
-
-    prediction_utility =    - (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
-    direct_utility =        - (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22
-
-
-
-    utility_j = prediction_utility + direct_utility
-
-    return prediction_utility, direct_utility, utility_j
-
-def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lower_bound_on_w_j):
+def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lower_bound_on_w_j, lambda_set):
     """ Anticipation on buyers is plugged in here"""
 
     """ This is a MAXIMIZATION of revenue"""
-    def utility_seller(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt, E_j_p_opt):
+    def utility_seller(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt, E_j_p_opt, lambda21, lambda22):
 
         """New Utility"""
-        try:
-            return - (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21 \
-               - (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22
-        except RuntimeWarning:
-            return 0
+        return - ( (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
+                       + (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22 )
+
     # def constraint_param_seller0(x):
     #     return Ej_global_sellers - x[0]
     #
@@ -363,16 +349,40 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
     R_d = R_direct
     E_d = E_supply_others
     E_j_p = E_j_prediction_seller
+
+    lambda21 = lambda_set[2]
+    lambda22 = lambda_set[3]
+
     init = w_j_storage_factor
 
     """  - (R_prediction * (E_j_prediction_seller * (1 - w_j_storage_factor) / (E_supply_prediction + E_j_prediction_seller * (1 - w_j_storage_factor))))**lambda21 
          - (R_direct     * (E_j_seller *                 w_j_storage_factor  / (E_supply_others     + E_j_seller *                 w_j_storage_factor)))**lambda22
     """
 
-    sol_seller = minimize(lambda w : utility_seller(w, R_p, E_j, E_p, R_d, E_d, E_j_p), init, method='SLSQP', bounds=bounds_seller)  # bounds=bounds, constraints=cons_seller
-    """return 5th element of solution vector."""
-    return sol_seller, sol_seller.x[0], utility_seller(sol_seller.x[0], R_p, E_j, E_p, R_d, E_d, E_j_p)
+    sol_seller = minimize(lambda w : utility_seller(w, R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22), init, method='SLSQP', bounds=bounds_seller)
 
+    """return 5th element of solution vector."""
+    return sol_seller, sol_seller.x[0], utility_seller(sol_seller.x[0], R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22)
+
+def calc_utility_function_j(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lambda_set):
+    """This function calculates sellers utility"""
+
+    R_p_opt = R_prediction
+    E_j_opt = E_j_seller
+    w       = w_j_storage_factor
+    E_p_opt = E_supply_prediction
+    R_d_opt = R_direct
+    E_d_opt = E_supply_others
+    E_j_p_opt = E_j_prediction_seller
+    lambda21 = lambda_set[2]
+    lambda22 = lambda_set[3]
+
+    prediction_utility =    - (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
+    direct_utility =        - (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22
+
+    utility_j = prediction_utility + direct_utility
+
+    return prediction_utility, direct_utility, utility_j
 
 
 """PREDICTION"""
@@ -461,6 +471,19 @@ def Peukerts_law():
     # efficiency_discharge =
     """http://ecee.colorado.edu/~ecen2060/materials/lecture_notes/Battery3.pdf"""
     return
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
