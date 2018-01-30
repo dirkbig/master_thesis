@@ -11,10 +11,10 @@ from scipy.optimize import minimize
 
 
 
-lambda11 = 1.5
+lambda11 = 2
 lambda12 = 1
-lambda21 = 1.5
-lambda22 = 1.3
+lambda21 = 2
+lambda22 = 2
 
 lambda_set = [lambda11, lambda12, lambda21, lambda22]
 
@@ -79,8 +79,6 @@ def read_csv_big_data(filename, duration):
             data_value = float(row[-1])
         data_return = np.append(data_return, data_value)
         return data_return
-
-
 
 
 
@@ -185,7 +183,7 @@ def calc_gamma():
 def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidding_price_i_prev, bidding_prices_others_opt, E_batt_available, SOC_gap_agent, lambda_set):
 
     """Level 1 game: distributed optimization"""
-
+    """ https: // stackoverflow.com / questions / 17009774 / quadratic - program - qp - solver - that - only - depends - on - numpy - scipy """
     """globally declared variables, do not use somewhere else!!"""
     # global E_global_buyers, c_S_global_buyers, c_i_global_buyers, c_l_global_buyers, E_i_demand_global
     #

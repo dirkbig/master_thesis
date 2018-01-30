@@ -9,39 +9,33 @@ from source.function_file import *
 
 fig_utilities = plt.figure(figsize=(10,2))
 
+
+
+
+lambda11 = 2
+lambda12 = 1
+lambda21 = 1.5
+lambda22 = 1.3
+
+lambda_set = [lambda11, lambda12, lambda21, lambda22]
+
+
 """PLOT: utility buyers"""
 
-E_i_demand = 2
+E_i_demand = 200
 E_total_supply = 10
 c_i_bidding_price = 8
 c_bidding_prices_others = 20
-c_i_range = np.linspace(0,5,100)
+c_i_range = np.linspace(0,100,100)
 
 utility_costs_plot = np.zeros(len(c_i_range))
 utility_demand_gap_plot = np.zeros(len(c_i_range))
 utility_i_plot = np.zeros(len(c_i_range))
 
-"""PLOT: utility sellers"""
-
-id_seller = 1
-E_j_seller = 20
-R_direct = 1
-E_supply_others = 100
-R_prediction = 1.2
-E_supply_prediction = 150
-E_j_prediction_seller = 10
-w_j_range = np.linspace(0,1,100)
-
-
-utility_direct_plot = np.zeros(len(w_j_range))
-utility_predicted_plot = np.zeros(len(w_j_range))
-utility_j_plot = np.zeros(len(w_j_range))
-
-
 ax_i = fig_utilities.add_subplot(122)
 for i in range(len(c_i_range)):
     c_i_bidding_price = c_i_range[i]
-    utility_i, demand_gap, utility_demand_gap, utility_costs = calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bidding_prices_others)
+    utility_i, demand_gap, utility_demand_gap, utility_costs = calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bidding_prices_others, lambda_set)
 
     utility_costs_plot[i]  = utility_costs
     utility_demand_gap_plot[i] = utility_demand_gap
@@ -66,10 +60,31 @@ plt.ylabel('Utility i', fontsize=10)
 plt.legend()
 
 
+
+"""PLOT: utility sellers"""
+
+id_seller = 1
+E_j_seller = 20
+R_direct = 1
+E_supply_others = 100
+R_prediction = 1.2
+E_supply_prediction = 150
+E_j_prediction_seller = 10
+w_j_range = np.linspace(0,1,100)
+
+utility_direct_plot = np.zeros(len(w_j_range))
+utility_predicted_plot = np.zeros(len(w_j_range))
+utility_j_plot = np.zeros(len(w_j_range))
+
+lambda21 = 1.5
+lambda22 = 1.3
+
+lambda_set = [lambda11, lambda12, lambda21, lambda22]
+
 ax_j = fig_utilities.add_subplot(121)
 for i in range(len(c_i_range)):
     w_j_storage_factor = w_j_range[i]
-    prediction_utility, direct_utility, utility_j = calc_utility_function_j(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller)
+    prediction_utility, direct_utility, utility_j = calc_utility_function_j(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller,lambda_set)
 
     utility_direct_plot[i] = direct_utility
     utility_predicted_plot[i] = prediction_utility

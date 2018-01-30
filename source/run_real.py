@@ -1,12 +1,14 @@
+import sys
+sys.path.append('/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/')
+
 from source.microgrid_model import *
+from blockchain.smartcontract import *
 import os
 
 if stopping_point > total_steps:
     sys.exit("stopping point should be within bounds of the day")
 
 """ Prelim"""
-
-
 Fs = sim_steps
 f = 20
 sample = sim_steps
@@ -23,6 +25,7 @@ master_file = np.zeros((N, step_day, 3))
 agent_id_load = 0
 number_of_files = 0
 day = 0
+
 
 for data_folder in os.listdir("/Users/dirkvandenbiggelaar/Desktop/DATA/LOAD"):
     load_file_path = "/Users/dirkvandenbiggelaar/Desktop/DATA/LOAD/" + data_folder
@@ -74,13 +77,13 @@ for i in range(len(usable)):                # i is the agent id, this loop loops
 #         load_file_agents[i][day] = load_file_agents[i][day] /(np.mean(load_file_agents[i][day]))
 #         production_file_agents[i][day] = production_file_agents[i][day]/np.mean(production_file_agents[i][day])
 
+
 for i in range(N):
          load_file_agents[i] = load_file_agents[i] / np.mean(load_file_agents[i])
 #         production_file_agents[i] = production_file_agents[i]/np.mean(production_file_agents[i])
 
 load_file_agents.resize((N, total_steps))
 production_file_agents.resize((N, total_steps))
-
 
 # """The long list of data per step"""
 # load_file_agents_days = np.zeros((N,step_day*days))
@@ -117,10 +120,8 @@ production_file_agents.resize((N, total_steps))
 #     # plt.plot(production_file_agents[i])
 #     plt.show()
 
-
 load_file_agents.resize((N, total_steps))
 production_file_agents.resize((N, total_steps))
-
 
 """Data Analysis"""
 avg_max_production = np.zeros((N,2))
@@ -130,7 +131,6 @@ for i in range(N):
     avg_max_production[i][1] = np.amax(production_file_agents[i])
     avg_max_load[i][0] = np.sum(load_file_agents[i]) / total_steps
     avg_max_load[i][1] = np.amax(load_file_agents[i])
-
 
 """Read in real test-data: this is pretty shitty"""
 #
@@ -203,6 +203,7 @@ for i in range(N):
 
 #
 #
+
 """write to a big_data_files"""
 # for i in range(N):
 #     with open('/Users/dirkvandenbiggelaar/Desktop/DATA/big_data_file_load/data_load_agent' + str(int(i)) + '.csv', 'w', newline='') as data_load_agent:
@@ -236,11 +237,10 @@ for i in range(N):
 # plt.plot(load_file_agents_loaded[1])
 # plt.show()
 
-
 """Assigns all agents initial load and production prediction for the day"""
 sim_steps = int(total_steps/step_time)
-big_data_file = np.zeros((int(total_steps/step_time), N, 3))             # list of data_file entries per agents
-#
+big_data_file = np.zeros((int(total_steps/step_time), N, 3))
+
 
 load_file_agents_time = np.zeros((N, int(total_steps/step_time)))
 production_file_agents_time = np.zeros((N, int(total_steps/step_time)))
@@ -261,11 +261,15 @@ for step in range(sim_steps):
         big_data_file[step][agent][0] = load_file_agents_time[agent][step]**0.5 * sine_wave_consumption_series[step]
         big_data_file[step][agent][1] = production_file_agents_time[agent][step]
 
-
 load, production, load_series_total, production_series_total = plot_input_data(big_data_file,sim_steps, N)
 
 """Model creation"""
-model_testrun = MicroGrid(N, big_data_file, starting_point)        # create microgrid model with N agents
+model_testrun = MicroGrid(N, big_data_file, starting_point, w3)        # create microgrid model with N agents
+
+""" compile and deploy smart-contract """
+# contract_interface, w3 = compile_smart_contract()
+# w3, contract_instance, deployment_tx_hash, contract_address = deploy_SC(contract_interface, w3)
+#
 
 """Microgrid ABM makes steps over the duration of the simulation, data collection"""
 duration_test = sim_steps
@@ -292,15 +296,10 @@ actual_batteries_over_time = np.zeros((N, sim_steps))
 E_total_supply_over_time = np.zeros(sim_steps)
 E_demand_over_time = np.zeros(sim_steps)
 avg_soc_preferred_over_time = np.zeros(sim_steps)
-soc_preferred_list_over_time = np.zeros((N, sim_steps))
+socs_preferred_over_time = np.zeros((N, sim_steps))
 E_total_demand_over_time = np.zeros((N, sim_steps))
 c_prices_over_time = np.zeros((N, sim_steps))
-
 E_surplus_over_time = np.zeros((N, sim_steps))
-
-
-plot_C_P(load_series_total, production_series_total)
-
 
 
 
@@ -323,7 +322,7 @@ for i in range(sim_steps):
     supplied_over_time_list[i] = supplied_on_step
     demand_over_time[i] = demand_on_step
     c_nominal_over_time[i] = c_nominal_per_step
-
+    avg_soc_preferred_over_time[i] = avg_soc_preferred
     """ Fix this """
     number_of_buyers_over_time[i] = len(buyers)
     number_of_sellers_over_time[i] = len(sellers)
@@ -344,6 +343,7 @@ for i in range(sim_steps):
         E_total_demand_over_time[agent][i] = E_total_demand_list[agent]
         c_prices_over_time[agent][i] = c_nominal_list[agent]
         E_surplus_over_time[agent][i] = E_surplus_list[agent]
+        socs_preferred_over_time[agent][i] = soc_preferred_list[agent]
     utilities_sellers_over_time[i][:][:] = utilities_sellers
     utilities_buyers_over_time[i][:][:] = utilities_buyers
 
@@ -358,22 +358,22 @@ for i in range(sim_steps):
         break
 
 
-
-
 """DATA PROCESSING, oftewel plots"""
-
+plot_C_P(load_series_total, production_series_total)
 plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_real_over_time, R_real_over_time, c_nominal_over_time)
+
 plot_results(mean_sharing_factors, supplied_over_time_list, demand_over_time, c_nominal_over_time,number_of_buyers_over_time,number_of_sellers_over_time)
 plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_time, E_demand_over_time, N)
+
 plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, sim_steps)
 plot_supplied_vs_surplus_total(surplus_on_step_over_time, supplied_on_step_over_time, demand_on_step_over_time)
 
+plot_input_data(big_data_file, sim_steps, N)
+plot_avg_soc_preferred(socs_preferred_over_time, avg_soc_preferred_over_time, actual_batteries_over_time, N, sim_steps)
 
 plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_total_demand_over_time, E_surplus_over_time, E_total_supply, c_nominal_over_time, N, sim_steps)
-plot_utility_seller(utilities_sellers_over_time, w_prices_over_time, demand_in_grid_over_time, w_nominal_over_time, N, sim_steps)
+# plot_utility_seller(utilities_sellers_over_time, w_factors_over_time, E_total_demand_over_time, w_nominal_over_time, N, sim_steps)
 
-plot_input_data(big_data_file, sim_steps, N)
-# plot_avg_soc_preferred(soc_preferred_list_over_time, avg_soc_preferred_over_time)
 
 print("done, nu echt")
 

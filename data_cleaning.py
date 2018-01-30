@@ -5,7 +5,7 @@ N_same_length = 10
 # sudo find /Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION -name ".DS_Store" -depth -exec rm {} \; removes all DS_Store files
 sudoPassword = 'biggelaar'
 command = 'sudo find /Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION -name ".DS_Store" -depth -exec rm {} \;'
-p = os.system('echo %s|sudo -S %s' % (sudoPassword, command))
+os.system('echo %s|sudo -S %s' % (sudoPassword, command))
 
 path_to_dirs = "/Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION"
 

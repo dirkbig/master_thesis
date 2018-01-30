@@ -172,9 +172,9 @@ def plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_total_d
 
     plt.show()
 
-def plot_utility_seller(utilities_buyers_over_time, c_nominal_over_time, demand_in_grid_over_time, N, steps):
+def plot_utility_seller(utilities_sellers_over_time, w_factors_over_time, E_total_demand_over_time, w_nominal_over_time, N, steps):
 
-    utilities_buyers_total_series = np.zeros(steps)
+    utilities_sellers_total_series = np.zeros(steps)
     utilities_buyers_demand_gap_series = np.zeros(steps)
     utilities_buyers_costs_series = np.zeros(steps)
 
@@ -262,13 +262,23 @@ def plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, s
 
     # ax2 = fig_utilities.add.subplot(212)
 
-def plot_avg_soc_preferred(soc_preferred_list_over_time, avg_soc_preferred_over_time):
+def plot_avg_soc_preferred(soc_preferred_list_over_time, avg_soc_preferred_over_time, soc_actual_over_time, N, steps):
+
+    avg_soc_actual_over_time = np.zeros(steps)
+    for agent in range(N):
+        for i in range(steps):
+            avg_soc_actual_over_time[i] += soc_actual_over_time[agent][i]/N
 
     fig_soc_preferred = plt.figure(figsize=(10,5))
-    ax1 = fig_soc_preferred.add_subplot(111)
+    ax1 = fig_soc_preferred.add_subplot(211)
 
-    ax1.plot(avg_soc_preferred_over_time, label='average soc over time')
+    ax1.plot(avg_soc_preferred_over_time, label='average soc_preferred over time')
+    ax1.plot(avg_soc_actual_over_time, label='average soc_actual over time')
     ax1.legend()
+
+    ax2 = fig_soc_preferred.add_subplot(212)
+    for i in range(N):
+        ax2.plot(soc_preferred_list_over_time[i])
 
     fig_soc_preferred.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_soc_preferred.pdf', bbox_inches='tight')  # save the figure to file
 
