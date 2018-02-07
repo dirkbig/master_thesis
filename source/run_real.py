@@ -3,7 +3,10 @@ sys.path.append('/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/')
 
 from source.microgrid_model import *
 from blockchain.smartcontract import *
+from source.plots import *
 import os
+
+np.seterr(all='warn')
 
 if stopping_point > total_steps:
     sys.exit("stopping point should be within bounds of the day")
@@ -13,7 +16,7 @@ Fs = sim_steps
 f = 20
 sample = sim_steps
 sine_wave_consumption_series = np.zeros(sim_steps)
-sine_constant = 1
+sine_constant = 3
 for i in range(sim_steps):
     sine_wave_consumption_series[i] = sine_constant + 0.7 * np.sin(np.pi * f * i / Fs - 1 * np.pi)
 
@@ -263,13 +266,11 @@ for step in range(sim_steps):
 
 load, production, load_series_total, production_series_total = plot_input_data(big_data_file,sim_steps, N)
 
-"""Model creation"""
-model_testrun = MicroGrid(N, big_data_file, starting_point, w3)        # create microgrid model with N agents
 
-""" compile and deploy smart-contract """
-# contract_interface, w3 = compile_smart_contract()
-# w3, contract_instance, deployment_tx_hash, contract_address = deploy_SC(contract_interface, w3)
-#
+
+"""Model creation"""
+model_testrun = MicroGrid(N, big_data_file, starting_point)        # create microgrid model with N agents
+
 
 """Microgrid ABM makes steps over the duration of the simulation, data collection"""
 duration_test = sim_steps

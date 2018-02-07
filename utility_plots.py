@@ -1,4 +1,7 @@
 import matplotlib.pyplot as plt
+
+import seaborn as sns
+sns.set()
 import numpy as np
 from source.function_file import *
 
@@ -8,7 +11,7 @@ from source.function_file import *
 
 
 fig_utilities = plt.figure(figsize=(10,2))
-
+fig_buyer_malicious_info = plt.figure(figsize=(10,2))
 
 
 
@@ -22,36 +25,69 @@ lambda_set = [lambda11, lambda12, lambda21, lambda22]
 
 """PLOT: utility buyers"""
 
-E_i_demand = 200
-E_total_supply = 10
-c_i_bidding_price = 8
-c_bidding_prices_others = 20
-c_i_range = np.linspace(0,100,100)
+E_i_demand = 20
+E_total_supply = 20
+E_total_supply_malicious = 10
+
+c_i_bidding_price = 10
+c_bidding_prices_others = 30
+c_i_range = np.linspace(0,20,100)
 
 utility_costs_plot = np.zeros(len(c_i_range))
 utility_demand_gap_plot = np.zeros(len(c_i_range))
 utility_i_plot = np.zeros(len(c_i_range))
+utility_costs_plot_m = np.zeros(len(c_i_range))
+utility_demand_gap_plot_m = np.zeros(len(c_i_range))
+utility_i_plot_m = np.zeros(len(c_i_range))
 
-ax_i = fig_utilities.add_subplot(122)
+ax_i = fig_utilities.add_subplot(121)
+ax3 = fig_buyer_malicious_info.add_subplot(121)
+ax4_m = fig_buyer_malicious_info.add_subplot(122)
+
 for i in range(len(c_i_range)):
     c_i_bidding_price = c_i_range[i]
     utility_i, demand_gap, utility_demand_gap, utility_costs = calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bidding_prices_others, lambda_set)
+    utility_i_m, demand_gap_m, utility_demand_gap_m, utility_costs_m = calc_utility_function_i(E_i_demand, E_total_supply_malicious, c_i_bidding_price, c_bidding_prices_others, lambda_set)
 
     utility_costs_plot[i]  = utility_costs
     utility_demand_gap_plot[i] = utility_demand_gap
     utility_i_plot[i] = utility_i
 
+    utility_costs_plot_m[i]  = utility_costs_m
+    utility_demand_gap_plot_m[i] = utility_demand_gap_m
+    utility_i_plot_m[i] = utility_i_m
+
 min_i = min(utility_i_plot)
+min_i_m = min(utility_i_plot_m)
+
 for i in range(len(utility_i_plot)):
     if utility_i_plot[i] == min_i:
         position_min_i = c_i_range[i]
 
+for i in range(len(utility_i_plot_m)):
+    if utility_i_plot_m[i] == min_i_m:
+        position_min_i_m = c_i_range[i]
 
-ax_i.plot(c_i_range,utility_costs_plot, label='utility_costs_plot')
-ax_i.plot(c_i_range,utility_demand_gap_plot, label='utility_demand_gap_plot')
-ax_i.plot(c_i_range,utility_i_plot, label='utility_i_plot')
+
+ax_i.plot(c_i_range,utility_costs_plot, label='utility costs')
+ax_i.plot(c_i_range,utility_demand_gap_plot, label='utility demand gap')
+ax_i.plot(c_i_range,utility_i_plot, label='total utility')
 ax_i.axhline(min_i, color='k', linestyle='--', alpha=0.3)
 ax_i.axvline(position_min_i, color='k', linestyle='--', alpha=0.3)
+
+
+ax3.plot(c_i_range,utility_costs_plot, label='utility costs')
+ax3.plot(c_i_range,utility_demand_gap_plot, label='utility demand gap')
+ax3.plot(c_i_range,utility_i_plot, label='total utility')
+ax3.axhline(min_i, color='k', linestyle='--', alpha=0.3)
+ax3.axvline(position_min_i, color='k', linestyle='--', alpha=0.3)
+
+
+ax4_m.plot(c_i_range,utility_costs_plot_m, label='utility costs')
+ax4_m.plot(c_i_range,utility_demand_gap_plot_m, label='utility demand gap')
+ax4_m.plot(c_i_range,utility_i_plot_m, label='total utility')
+ax4_m.axhline(min_i_m, color='k', linestyle='--', alpha=0.3)
+ax4_m.axvline(position_min_i_m, color='k', linestyle='--', alpha=0.3)
 
 plt.xlabel('c_i', fontsize=10)
 plt.ylabel('Utility i', fontsize=10)
@@ -81,7 +117,7 @@ lambda22 = 1.3
 
 lambda_set = [lambda11, lambda12, lambda21, lambda22]
 
-ax_j = fig_utilities.add_subplot(121)
+ax_j = fig_utilities.add_subplot(122)
 for i in range(len(c_i_range)):
     w_j_storage_factor = w_j_range[i]
     prediction_utility, direct_utility, utility_j = calc_utility_function_j(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller,lambda_set)
@@ -108,10 +144,10 @@ plt.ylabel('Utility j', fontsize=10)
 plt.legend()
 
 fig_utilities.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_utilities.pdf',bbox_inches='tight')
+fig_buyer_malicious_info.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_buyer_malicious_info.pdf',bbox_inches='tight')
+
 plt.show()
 
-
-# save the figure to file
 
 
 

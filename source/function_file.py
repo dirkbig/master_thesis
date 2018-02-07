@@ -1,4 +1,5 @@
 import csv
+import pdb
 import random
 
 import matplotlib.pyplot as plt
@@ -170,6 +171,7 @@ def allocation_i(E_total_supply,c_i_bidding_price, c_bidding_prices_others):
     try:
         E_i_allocation = E_total_supply * (c_i_bidding_price / (c_bidding_prices_others + c_i_bidding_price))
     except RuntimeWarning:
+        pdb.set_trace()
         E_i_allocation = 0
 
     return E_i_allocation
@@ -414,13 +416,15 @@ def calc_R_prediction(R_total, big_data_file, horizon, agents, steps):
     """ alpha looks at the future availability of energy in the system: predicted surplus"""
     try:
         alpha = gap[0]**0.5/(sum(gap**0.5/horizon))
-    except RuntimeWarning:
-        alpha = 0
+    except RuntimeWarning or sum(gap) == 0 or len(horizon) < 10:
+        alpha = 1
+
     """ beta looks at """
     try:
         beta = E_predicted_total[0]**0.5/(sum(E_predicted_total**0.5)/horizon)
-    except RuntimeWarning:
-        beta = 0
+    except RuntimeWarning or sum(E_predicted_total) == 0 or len(horizon) < 10:
+        beta = 1
+
 
     """ test which one works better"""
     R_prediction =  (beta * R_total + alpha * R_total)/2

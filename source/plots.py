@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set()
 import numpy as np
 
 def plot_E_total_surplus_prediction_per_step(E_total_surplus_prediction_per_step, N):
