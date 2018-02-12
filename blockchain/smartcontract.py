@@ -2,18 +2,22 @@ import json
 import web3
 import os
 import sys
-
+import time
 from web3 import Web3, HTTPProvider, TestRPCProvider
 from solc import compile_source
 from web3.contract import ConciseContract
 
+global contract_kind
+
+# contract_kind = 'classic'
+contract_kind = 'concise'
 
 def compile_smart_contract():
     """ SOLIDITY CODE COMPILER,
         see https://github.com/pipermerriam/web3.py """
 
     contract_source_code = """ 
-    /*
+/*
      * A token contract where the tokens are minted every time new energy is created and destroyed at the other side.
      * Agent can approve its smart meter to use its tokens. The smart Meter can use those tokens on behalf its of owner.
      * A special donate function so people give back to the system if they want.
@@ -25,10 +29,11 @@ def compile_smart_contract():
     
     contract HouseholdToken {
         // Public variables of the token
-        string public name = "Energy Bazaar";
-        string public symbol = "EBZ";
+        uint256 public class;
         uint8 public decimals = 100;
         uint256 public totalSupply = 1000000;
+        uint256 public startCapital = 1000000;
+        uint256 public promise;
         // Private account of the contract creator. to be used as a base account
         address supplier;        
         
@@ -36,157 +41,115 @@ def compile_smart_contract():
         // This creates an array with all balances
         // The actual balance
         mapping (address => uint256) public balanceOf;
-        // The balance allowed for the Smart Meter to spend
-        mapping (address => mapping (address => uint256)) public allowance;
-    
+        
         // mapping of promises of agents per step (needs to be updated each round)
         mapping (address => uint256) public promiseOfsell;
         mapping (address => uint256) public promiseOfbuy;
         mapping (address => uint256) public classificationOf;
 
-
-        // This generates a public event on the blockchain that will notify clients
         event Transfer(address indexed from, address indexed to, uint256 value);
-    
-        // This notifies clients about the amount donated
         event Donate(address indexed from, uint256 value);
-    
-        //This notifies energy tokens created
-        event CreatedEnergy(address indexed from, uint256 value);
-    
-        //This notifies energy tokens used
+        event CreatedEnergy(address indexed from, uint256 value, uint256 balance);
         event RemovedEnergy(address indexed from, uint256 value);
-    
-        //This notifies community on initialisation of contract through MyToken() function
         event InitialisedContract(address indexed from, uint256 value);
+        event Test(uint256);
         
-        /**
-         * Constructor function
-         *
-         * Initialises contract with initial supply tokens to the creator of the contract
-         */
+        
+        //Initialisation of tokens
          
-        function MyToken() external {
+        function MyToken() public returns(uint256){
+            // add require 1-time-give-away check
             supplier = msg.sender;                              // Storing the contract creator's address
             balanceOf[msg.sender] = totalSupply;                // Give the creator all initial tokens
             InitialisedContract(msg.sender, totalSupply);
+            Test(balanceOf[msg.sender]);
+            return totalSupply;
+
         }
-    
-        /**
-         * Internal transfer, only can be called by this contract
-         */
-         
-        function _transfer(address _from, address _to, uint _value) internal {
-            require(_to != 0x0);                                        // Prevent transfer to 0x0 address. Use burn() instead
-            require(balanceOf[_from] >= _value);                        // Check if the sender has enough
-            require(balanceOf[_to] + _value > balanceOf[_to]);          // Check for overflows
-            if (classificationOf[msg.sender] == 1)
-                require(_value <= promiseOfsell[msg.sender]);       // Check whether agents holds its promise of selling
-            if (classificationOf[msg.sender] == 2)
-                require(_value <= promiseOfbuy[msg.sender]);        // Check whether agents holds its promise of buying
-            balanceOf[_from] -= _value;                                 // Subtract from the sender
-            balanceOf[_to] += _value;                                   // Add the same to the recipient
-            Transfer(_from, _to, _value);                               // Send Event
-        }
-    
-        /**
-         * Transfer tokens from one account to other(s)
-         *
-         * Send `_value` tokens to `_to` from your account
-         *
-         * @param _to The address of the recipient
-         * @param _value the amount to send
-         */
-        function transfer(address _to, uint256 _value) public {
-            _transfer(msg.sender, _to, _value);
-        }
-    
-        /**
-         * Add tokens to the energy creators account
-         *
-         * Send `_value` tokens to `_to` from `supplier` account
-         *
-         * @param _to The address of the person owning Smart Meter
-         * @param _value the amount to send
-         */
-        function generatedEnergy(address _to, uint256 _value) public {
-            _transfer(supplier, _to, _value);
-            CreatedEnergy(_to, _value);                                 // Send Event
-        }
-    
-    
-        /**
-         * Transfer tokens from other address (i.e. Smart meter)
-         * To be triggered by smart meter
-         *
-         * Send `_value` tokens to `owner` in behalf of `_from`
-         *
-         * @param _from The address of the sender
-         * @param _value the amount to send
-         */
-        function consumedEnergy(address _from, uint256 _value) public returns (bool success) {
-            require(_value <= allowance[_from][msg.sender]);     // Check allowance
-            allowance[_from][msg.sender] -= _value;
-            _transfer(_from, supplier, _value);
-            RemovedEnergy(_from, _value);                        // Send Event
-            return true;
-        }
-    
-        /**
-         * Set allowance for Smart Meter to spend on your behalf
-         *
-         * Allows `_spender` to spend no more than `_value` tokens in your behalf
-         *
-         * @param _spender The smart meter address authorized to spend
-         * @param _value the max amount they can spend
-         */
-        function approve(address _spender, uint256 _value) public
-            returns (bool success) {
-            allowance[msg.sender][_spender] = _value;
-            return true;
+                
+        function giveStartingMoney() external {
+            // add require 1-time-give-away check
+            balanceOf[msg.sender] = startCapital; 
+            InitialisedContract(msg.sender, totalSupply);
         }
         
-        //make a promise
-        function promise_sell(address _promiser, uint256 _value) public
-            returns (bool success) {
+        
+        //Return functions
+        function getBalance(address _user) constant returns (uint256){
+            return balanceOf[_user];
+            }
+         
+        function returnPromiseOfsell(address _account) constant returns (uint256){
+            return promiseOfsell[_account];
+            }
+            
+        function returnPromiseOfbuy(address _account) constant returns (uint256){
+            return promiseOfbuy[_account];
+            }
+
+
+        //Internal transfer
+        function _transfer(address _from, address _to, uint _value) private {
+            require(_to != 0x0);                                         // Prevent transfer to 0x0 address. Use burn() instead
+            require(balanceOf[_from] >= _value);                         // Check if the sender has enough
+            require(balanceOf[_to] + _value >= balanceOf[_to]);          // Check for overflows
+            //if (_class == 1)
+            //     promise = promiseOfsell[_to] + 1;                       // Check whether agents holds its promise of selling
+            //if (_class == 2)
+            //    promise = promiseOfbuy[_from] + 1;                       // Check whether agents holds its promise of buying
+            // require(_value <= promise);                                  // Check whether agents holds its promise of buying
+            balanceOf[_from] -= _value;                                  // Subtract from the sender
+            balanceOf[_to] += _value;                                    // Add the same to the recipient
+            Transfer(_from, _to, _value);                                // Send Event
+        }
+    
+    
+        //
+        function generatedEnergy(address _from, uint256 _value) public {
+            require(_from != 0x0);                                            // Prevent transfer to 0x0 address. Use burn() instead
+            require(balanceOf[msg.sender] >= _value);                         // Check if the sender has enough
+            require(promiseOfsell[msg.sender] >= 0);
+            balanceOf[supplier] -= _value;                                  // Subtract from the sender
+            balanceOf[msg.sender] += _value;  
+            CreatedEnergy(msg.sender, _value, balanceOf[msg.sender]);                             // Send Event
+        }
+    
+         
+        function consumedEnergy(address _from, uint256 _value) public {
+            require(msg.sender != 0x0);                                            // Prevent transfer to 0x0 address. Use burn() instead
+            require(balanceOf[msg.sender] >= _value);                               // Check if the sender has enough
+            require(promiseOfbuy[msg.sender] >= 0);
+            balanceOf[msg.sender] -= _value;  
+            balanceOf[supplier] += _value;  
+            RemovedEnergy(msg.sender, _value);                                           // Send Event
+        }
+
+        
+        //make a promise on selling
+        function makePromiseOfsell(address _promiser, uint256 _value) public returns (bool success) {
             promiseOfsell[_promiser] = _value;
             promiseOfbuy[_promiser] = 0;
-            classificationOf[_promiser] = 1;
+            // classificationOf[_promiser] = 1;
             return true;
         }
         
-        function promise_buy(address _promiser, uint256 _value) public
-            returns (bool success) {
+        
+        // make a promise on buying
+        function makePromiseOfbuy(address _promiser, uint256 _value) public returns (bool success) {
             promiseOfbuy[_promiser] = _value;
             promiseOfsell[_promiser] = 0;
-            classificationOf[_promiser] = 2;
+            // classificationOf[_promiser] = 2;
             return true;
         }
-        /**
-         * Donate Tokens to the platform for social service/impact
-         *
-         * Remove `_value` tokens from the system irreversibly
-         *
-         * @param _value the amount of money to burn
-         */
-        function donate(uint256 _value) public returns (bool success) {
-            require(balanceOf[msg.sender] >= _value);   // Check if the sender has enough
-            _transfer(msg.sender, supplier, _value);
-            Donate(msg.sender, _value);                   // Send Event
-            return true;       
-        }    
+        
+  
     }
+
     """
 
-    """ compile Solidity code """
     compiled_sol = compile_source(contract_source_code) # Compiled source code
     contract_interface = compiled_sol['<stdin>:HouseholdToken']
-
-    """ create web3.py test environment instance"""
-    w3 = web3.Web3(TestRPCProvider())
-
-    # for i in range(len(w3.eth.accounts)):
-    #     print(w3.eth.accounts[i])
+    w3 = Web3(TestRPCProvider())
 
     return contract_interface, w3
 
@@ -197,96 +160,140 @@ def deploy_SC(contract_interface, w3, creator_address):
     # os.system('source ~/.venv-py3/bin/activate')
     # if hasattr(sys, 'real_prefix'):
     #     print('Virtual environment activated')
-
-    """ use the web3.eth.contract(...) method to generate the contract factory classes for your contracts, 
-        instantiate contract"""
-    contract = w3.eth.contract(contract_interface['abi'], bytecode=contract_interface['bin'])
-    deployment_tx_hash = contract.deploy(transaction={'from': creator_address, 'gas': 4000000})
-    tx_receipt = w3.eth.getTransactionReceipt(deployment_tx_hash)
+    contract_classic = w3.eth.contract(contract_interface['abi'], bytecode=contract_interface['bin'])
+    tx_hash = contract_classic.deploy(transaction={'from': creator_address})
+    tx_receipt = w3.eth.getTransactionReceipt(tx_hash)
     contract_address = tx_receipt['contractAddress']
+    contract_instance  = contract_classic
 
-    contract_instance = w3.eth.contract(contract_interface['abi'], contract_address,
-                                        ContractFactoryClass=ConciseContract)
+    if contract_kind == 'concise':
 
-    print('tx receipt:', tx_receipt)
+        contract_concise = w3.eth.contract(contract_interface['abi'], contract_address,
+                                            ContractFactoryClass=ConciseContract)
+        contract_instance = contract_concise
 
-    return w3, contract_instance, deployment_tx_hash, contract_address
-    # # Get transaction hash from deployed contract
-    # print('deployment_tx_hash')
-    # # Get tx receipt to get contract address
-    # print('Contract deployed, contract address:', contract_address)
-    # print(contract_address)
-    # print(w3.eth.accounts)
+    # # event_sig_Transfer = web3.Web3.sha3(text='Transfer(address,address,uint256)')
+    # # event_Transfer = w3.eth.filter({'topics': [event_sig_Transfer]})
+    #
+    # # event_sig_Donate = web3.Web3.sha3(text='Donate(address,address,uint256)')
+    # # event_Donate = w3.eth.filter({'topics': [event_sig_Donate]})
+    #
+    # event_sig_CreatedEnergy = web3.Web3.sha3(text='CreatedEnergy(address, uint256, uint256)')
+    # event_CreatedEnergy = w3.eth.filter({'topics': [event_sig_CreatedEnergy]})
+    #
+    # # event_sig_RemovedEnergy = web3.Web3.sha3(text='RemovedEnergy(address,address,uint256)')
+    # # event_RemovedEnergy = w3.eth.filter({'topics': [event_sig_RemovedEnergy]})
+    #
+    # event_sig_InitialisedContract = web3.Web3.sha3(text='InitialisedContract(address,uint256)')
+    # event_InitialisedContract = w3.eth.filter({'topics': [event_sig_InitialisedContract]})
+
+    return w3, contract_instance, tx_receipt, contract_address, event_CreatedEnergy, event_InitialisedContract
+
+def setter_initialise_tokens(w3, contract_instance, deployment_tx_hash, creator_address, event_InitialisedContract):
 
 
 
-def setter_initialise_tokens(w3, contract_instance, deployment_tx_hash, contract_address):
-    """
-    constructor functions
-        function MyToken()
 
-    sc functions
-        function _transfer(address _from, address _to, uint _value)
-        function transfer(address _to, uint256 _value)
-        function mintToken(address target)
-        function burnFrom(address _from)
+    if contract_kind == 'classic':
+        contract_instance.transact({'from': creator_address, 'to': creator_address}).MyToken()
 
-        function approve(address _spender, uint256 _value)
-        function donate(uint256 _value)
-    """
-    constructor_supply_hash = contract_instance.MyToken(transact={'from': w3.eth.accounts[0]})
-    constructor_supply_receipt = w3.eth.getTransactionReceipt(constructor_supply_hash)
-    return constructor_supply_receipt
+    if contract_kind == 'concise':
+        """ All transactions are simple calls"""
+        contract_instance.MyToken(transact={'from': w3.eth.accounts[0]})
+        print('Contract value: {}'.format(contract_instance.getBalance(w3.eth.accounts[0])))
+
+    return
+
+
+
+def setter_initialise_tokens2(w3, contract_instance, deployment_tx_hash, initiator):
+    #
+    # constructor_supply_hash = contract_instance.transact({'from': initiator, 'to': initiator}).MyToken2()
+    # constructor_supply_receipt = w3.eth.getTransactionReceipt(constructor_supply_hash)
+    # while constructor_supply_receipt is None:
+    #     time.sleep(1)
+    #     constructor_supply_receipt = w3.eth.getTransactionReceipt(constructor_supply_hash)
+
+
+    if contract_kind == 'classic':
+        contract_instance.transact({'from': initiator, 'to': initiator}).giveStartingMoney()
+
+    elif contract_kind == 'concise':
+        contract_instance.giveStartingMoney(transact={'from': initiator})
+    return
 
 
 def setter_promise_sell(w3, contract_instance, promiser, value, c_i_broadcast):
     """ function promise(address _promiser, uint256 _value) public """
-    """ Smart contract only accepts integers, to round off floats to ints"""
     value_int = int(value)
 
-    promise_sell_hash = contract_instance.promise_sell(promiser, value_int, transact={'from': promiser})
-    promise_sell_receipt = w3.eth.getTransactionReceipt(promise_sell_hash)
-    promise_on_bc = contract_instance.promiseOfsell(promiser)
+    if contract_kind == 'classic':
+        tx_hash = contract_instance.transact({'from': promiser, 'to': promiser}).makePromiseOfsell(promiser, value_int)
+        receipt = w3.eth.getTransactionReceipt(tx_hash)
+        promise_of_sell = contract_instance.call({'from': promiser, 'to': promiser}).getBalance(promiser)
 
-    return promise_sell_receipt, promise_on_bc
+    elif contract_kind == 'concise':
+        contract_instance.makePromiseOfsell(promiser, value_int, transact={'from': promiser})
+        promise_of_sell = contract_instance.returnPromiseOfsell(promiser)
+
+    return promise_of_sell
 
 
 def setter_promise_buy(w3, contract_instance, promiser, value, w_j_broadcast):
     """ function promise(address _promiser, uint256 _value) public """
-    """ Smart contract only accepts integers, to round off floats to ints"""
     value_int = int(value)
 
-    promise_buy_hash = contract_instance.promise_buy(promiser, value_int, transact={'from': promiser})
-    promise_buy_receipt = w3.eth.getTransactionReceipt(promise_buy_hash)
-    promise_on_bc = contract_instance.promiseOfbuy(promiser)
-    return promise_buy_receipt, promise_on_bc
+    if contract_kind == 'classic':
+        tx_hash = contract_instance.transact({'from': promiser, 'to': promiser}).makePromiseOfbuy(promiser, value_int)
+        receipt = w3.eth.getTransactionReceipt(tx_hash)
+        promise_of_buy = 0
+
+    elif contract_kind == 'concise':
+        tx_hash = contract_instance.makePromiseOfbuy(promiser, value_int, transact={'from': promiser})
+        consumer_receipt = w3.eth.getTransactionReceipt(tx_hash)
+        promise_of_buy = contract_instance.returnPromiseOfbuy(w3.eth.accounts[1])
+
+
+    return promise_of_buy
 
 
 def setter_burn(w3, contract_instance, consumer, value):
     """ Burn function used by buyers"""
-    """ Smart contract only accepts integers, to round off floats to ints"""
     value_int = int(value)
 
-    consumer_receipt = contract_instance.consumedEnergy(consumer, value_int, transact={'from': consumer})
-    print('balance after burnig, ',w3.eth.getBalance(consumer))
-    balance_on_bc = contract_instance.promiseOfbuy(consumer)
+    if contract_kind == 'classic':
+        tx_hash = contract_instance.transact({'from': consumer, 'to': consumer}).consumedEnergy(consumer, value_int)
+        receipt = w3.eth.getTransactionReceipt(tx_hash)
+        balance_on_bc = 0
 
-    return consumer_receipt, balance_on_bc
+    elif contract_kind == 'concise':
+        tx_hash = contract_instance.consumedEnergy(consumer, value_int, transact={'from': consumer, 'gas': 300000})
+        receipt = w3.eth.getTransactionReceipt(tx_hash)
+        balance_on_bc = contract_instance.getBalance(consumer)
+
+
+    print(balance_on_bc)
+
+    return balance_on_bc
 
 
 def setter_mint(w3, contract_instance, producer, value):
     """ Mint function available to sellers"""
-    """ Smart contract only accepts integers, to round off floats to ints"""
     value_int = int(value)
 
-    print('gas balance before minting,',w3.eth.getBalance(producer))
-    before = w3.eth.getBalance(producer)
-    generation_receipt = contract_instance.generatedEnergy(producer, value_int, transact={'from': producer})
-    print('gas balance after minting,',w3.eth.getBalance(producer))
-    print('total gained,', (w3.eth.getBalance(producer) - before))
-    balance_on_bc = contract_instance.promiseOfbuy(producer)
+    if contract_kind == 'classic':
+        tx_hash = contract_instance.transact({'from': producer, 'to': producer}).generatedEnergy(producer, value_int)
+        receipt = w3.eth.getTransactionReceipt(tx_hash)
+        balance_on_bc = 0
 
-    return generation_receipt, balance_on_bc
+    elif contract_kind == 'concise':
+        tx_hash = contract_instance.generatedEnergy(producer, value_int, transact={'from':producer, 'gas': 300000})
+        receipt = w3.eth.getTransactionReceipt(tx_hash)
+        balance_on_bc = contract_instance.getBalance(producer)
+
+    print(balance_on_bc)
+
+    return balance_on_bc
 
 
 """http://web3py.readthedocs.io/en/stable/"""

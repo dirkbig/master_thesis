@@ -8,6 +8,8 @@
       <w>blockchain</w>
       <w>csvfile</w>
       <w>incoorporate</w>
+      <w>ofbuy</w>
+      <w>ofsell</w>
       <w>onall</w>
       <w>optimzation</w>
       <w>optimziation</w>
@@ -16,6 +18,7 @@
       <w>slsqp</w>
       <w>splitted</w>
       <w>timestep</w>
+      <w>uint</w>
       <w>vread</w>
     </words>
   </dictionary>

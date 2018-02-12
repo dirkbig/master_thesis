@@ -1,34 +1,30 @@
-import random
+import numpy as np
+# from source.batchrunner import Batch_number_of_agents
 
+"""All starting parameters are initialised"""
+starting_point = 0
+stopping_point = 7200 - starting_point - 4000
+step_day = 1440
+timestep = 5
+days = 5
+blockchain = 'off'
 
-def initialize(agent_value):
-    gamma = 0.5
-    E_j_supply = random.uniform(0, 100)       # Ej (if sellers)
-    E_i_demand = random.uniform(0, 100)       # Ei (if buyers)
-    used_energy = 0               # Ei*ci initial
-    E_i_allocation = 0.0
-    stored_energy = 0.5
-    available_storage = 0.0
-    payment_to_seller = 0.0
-    w_j_storage_factor = random.uniform(1, 2)
+step_time = 5
+total_steps = step_day*days
+sim_steps = int(total_steps/step_time)
 
+N = 20
+comm_radius = 10
 
-    """initialization function"""
-    if agent_value == "E_j_surplus":
-        return E_j_supply
-    if agent_value == "E_i_demand":
-        return E_i_demand
-    if agent_value == "payment_to_seller":
-        return payment_to_seller
-    if agent_value == "w_j_storage_factor":
-        return w_j_storage_factor
-    if agent_value == "available_storage":
-        return available_storage
-    if agent_value == "E_i_allocation":
-        return E_i_allocation
-    if agent_value == "stored_energy":
-        return stored_energy
-    if agent_value == "used_energy":
-        return used_energy
-    if agent_value == "gamma":
-        return gamma
+step_list = np.zeros([sim_steps])
+
+c_S = 10                                             # c_S is selling price of the microgrid
+c_B = 1                                              # c_B is buying price of the microgrid
+c_macro = (c_B, c_S)                                 # Domain of available prices for bidding player i
+possible_c_i = range(c_macro[0], c_macro[1])         # domain of solution for bidding price c_i
+
+e_buyers = 0.001
+e_sellers = 0.001
+e_global = 0.01
+e_cn = 0.01
+e_supply = 0.1

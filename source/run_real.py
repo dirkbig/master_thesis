@@ -1,7 +1,19 @@
 import sys
 sys.path.append('/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/')
 
-from source.microgrid_model import *
+
+
+
+
+model = 'sync'
+# model = 'async'
+
+
+if model == 'sync':
+     from source.microgrid_model import *
+if model == 'async':
+     from source.microgrid_async import *
+
 from blockchain.smartcontract import *
 from source.plots import *
 import os
@@ -11,7 +23,7 @@ np.seterr(all='warn')
 if stopping_point > total_steps:
     sys.exit("stopping point should be within bounds of the day")
 
-""" Prelim"""
+""" Prelim """
 Fs = sim_steps
 f = 20
 sample = sim_steps
@@ -20,18 +32,29 @@ sine_constant = 3
 for i in range(sim_steps):
     sine_wave_consumption_series[i] = sine_constant + 0.7 * np.sin(np.pi * f * i / Fs - 1 * np.pi)
 
-
 """Read in actual data specific to actual agent: this is OK (using open-source data)"""
 load_file_agents = np.zeros((N, days, step_day))
 production_file_agents = np.zeros((N, days, step_day))
 master_file = np.zeros((N, step_day, 3))
+
+
+usable, length_usable = get_usable()
+print(length_usable)
+if length_usable < N:
+    sys.exit("Number of useable datasets is smaller than number of agents")
+
+""" Reading in load data from system """
+# sudoPassword = 'biggelaar'
+# command = 'sudo find /Users/dirkvandenbiggelaar/Desktop/DATA/LOAD -name ".DS_Store" -depth -exec rm {} \;'
+# os.system('echo %s|sudo -S %s' % (sudoPassword, command))
+
 agent_id_load = 0
 number_of_files = 0
 day = 0
-
-
-for data_folder in os.listdir("/Users/dirkvandenbiggelaar/Desktop/DATA/LOAD"):
-    load_file_path = "/Users/dirkvandenbiggelaar/Desktop/DATA/LOAD/" + data_folder
+for data_file in os.listdir("/Users/dirkvandenbiggelaar/Desktop/DATA/LOAD"):
+    if number_of_files == 69:
+        pass
+    load_file_path = "/Users/dirkvandenbiggelaar/Desktop/DATA/LOAD/" + data_file
     load_file_agents[agent_id_load][day] = read_csv_load(load_file_path, step_day)
     number_of_files += 1
     agent_id_load += 1
@@ -41,15 +64,13 @@ for data_folder in os.listdir("/Users/dirkvandenbiggelaar/Desktop/DATA/LOAD"):
     if number_of_files > (N*days - 1):
         break
 
-usable, length_usable = get_usable()
-if length_usable < N:
-    sys.exit("Number of useable datasets is smaller than number of agents")
-
+# sudoPassword = 'biggelaar'
+# command = 'sudo find /Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION -name ".DS_Store" -depth -exec rm {} \;'
+# os.system('echo %s|sudo -S %s' % (sudoPassword, command))
 
 agent_id_prod = 0
 number_of_files = 0
 day = 0
-
 for i in range(len(usable)):                # i is the agent id, this loop loops over number of solar-agents
     production_folder_path = "/Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION/" + str(int(usable[i]))
     for file in os.listdir(production_folder_path):
@@ -67,61 +88,11 @@ for i in range(len(usable)):                # i is the agent id, this loop loops
     if number_of_files > (N*days - 1):
         break
 
-
-
-"""Normalise data before appending them together"""
-#
-# for i in range(N):
-#     for day in range(days):
-#         for step in range(step_day):
-#             if load_file_agents[i][day][step] > 30*np.mean(load_file_agents[i][day]):
-#                 load_file_agents[i][day][step] = np.mean(load_file_agents[i][day])
-#             if
-#         load_file_agents[i][day] = load_file_agents[i][day] /(np.mean(load_file_agents[i][day]))
-#         production_file_agents[i][day] = production_file_agents[i][day]/np.mean(production_file_agents[i][day])
-
-
 for i in range(N):
          load_file_agents[i] = load_file_agents[i] / np.mean(load_file_agents[i])
-#         production_file_agents[i] = production_file_agents[i]/np.mean(production_file_agents[i])
 
 load_file_agents.resize((N, total_steps))
 production_file_agents.resize((N, total_steps))
-
-# """The long list of data per step"""
-# load_file_agents_days = np.zeros((N,step_day*days))
-# production_file_agents_days = np.zeros((N,step_day*days))
-#
-# load_file_agents_extended = []
-# production_file_agents_extended = []
-# for i in range(N):
-#     for day in range(days):
-#         for step in range(step_day):
-#             load_file_agents_extended.append([load_file_agents_extended,load_file_agents[i][day][step]])
-#             production_file_agents_extended.append([production_file_agents_extended, production_file_agents[i][day][step]])
-#     # print(load_file_agents_appended.shape)
-#     # print(load_file_agents_appended.shape)
-#     load_file_agents_extended = np.asarray(load_file_agents_extended)
-#     production_file_agents_extended = np.asarray(production_file_agents_extended)
-#
-#     load_file_agents_days[i] = load_file_agents_extended
-#     production_file_agents_days[i] = production_file_agents_extended
-#     print(load_file_agents_days.shape)
-#     print(production_file_agents_days.shape)
-#
-#
-# for i in range(N):
-#     plt.plot(load_file_agents[i][day])
-#     # plt.plot(load_file_agents_days[i])
-#     plt.show()
-#
-
-
-
-# for i in range(N):
-#     plt.plot(load_file_agents_days[i])
-#     # plt.plot(production_file_agents[i])
-#     plt.show()
 
 load_file_agents.resize((N, total_steps))
 production_file_agents.resize((N, total_steps))
@@ -251,8 +222,7 @@ production_file_agents_time = np.zeros((N, int(total_steps/step_time)))
 load_file_agents_time_med = np.zeros((N, int(total_steps/step_time)))
 production_file_agents_time_med = np.zeros((N, int(total_steps/step_time)))
 
-
-for agent in range(N):
+for agent in range(min(N,14)):
     for step in range(int(len(load_file_agents[agent])/step_time)):
         load_file_agents_time[agent][step] = sum(load_file_agents[agent][step_time*step:(step_time*step + step_time)])/step_time
         production_file_agents_time[agent][step] = sum(production_file_agents[agent][step_time*step:(step_time*step + step_time)])/step_time
@@ -264,12 +234,18 @@ for step in range(sim_steps):
         big_data_file[step][agent][0] = load_file_agents_time[agent][step]**0.5 * sine_wave_consumption_series[step]
         big_data_file[step][agent][1] = production_file_agents_time[agent][step]
 
+
+
 load, production, load_series_total, production_series_total = plot_input_data(big_data_file,sim_steps, N)
 
 
 
 """Model creation"""
-model_testrun = MicroGrid(N, big_data_file, starting_point)        # create microgrid model with N agents
+if model == 'sync':
+    model_testrun = MicroGrid_sync(N, big_data_file, starting_point)        # create microgrid model with N agents
+
+if model == 'async':
+    model_testrun = MicroGrid_async(N, big_data_file, starting_point)        # create microgrid model with N agents
 
 
 """Microgrid ABM makes steps over the duration of the simulation, data collection"""
@@ -302,8 +278,9 @@ E_total_demand_over_time = np.zeros((N, sim_steps))
 c_prices_over_time = np.zeros((N, sim_steps))
 E_surplus_over_time = np.zeros((N, sim_steps))
 
-
-
+num_global_iteration_over_time = np.zeros(sim_steps)
+num_buyer_iteration_over_time = np.zeros(sim_steps)
+num_seller_iteration_over_time = np.zeros(sim_steps)
 """Run that fucker"""
 for i in range(sim_steps):
     """ Data collection"""
@@ -314,8 +291,9 @@ for i in range(sim_steps):
     actual_batteries, E_total_supply, E_demand, \
     utilities_buyers, utilities_sellers, \
     soc_preferred_list, avg_soc_preferred, \
-    E_total_demand_list, c_nominal_list, E_surplus_list \
-        = model_testrun.step()
+    E_total_demand_list, c_nominal_list, E_surplus_list, \
+    num_global_iteration, num_buyer_iteration, num_seller_iteration \
+            = model_testrun.step()
 
     # E_real == supplied_on_step
 
@@ -345,6 +323,7 @@ for i in range(sim_steps):
         c_prices_over_time[agent][i] = c_nominal_list[agent]
         E_surplus_over_time[agent][i] = E_surplus_list[agent]
         socs_preferred_over_time[agent][i] = soc_preferred_list[agent]
+
     utilities_sellers_over_time[i][:][:] = utilities_sellers
     utilities_buyers_over_time[i][:][:] = utilities_buyers
 
@@ -353,14 +332,27 @@ for i in range(sim_steps):
     E_demand_over_time[i] = E_demand
     # print(utilities_sellers, 'utilities_sellers')
     # print(utilities_sellers_over_time, 'utilities_sellers_over_time')
-
+    num_global_iteration_over_time[i] = num_global_iteration
+    num_buyer_iteration_over_time[i] = num_buyer_iteration
+    num_seller_iteration_over_time[i] = num_seller_iteration
     if i >= stopping_point/step_time:
         print("done, nu nog plotjes")
         break
 
 
+
+
+
+
+plot_iterations(num_global_iteration_over_time, num_buyer_iteration_over_time,num_seller_iteration_over_time)
+num_global_iteration_over_time = np.delete(num_global_iteration_over_time, [index for index, value in enumerate(num_global_iteration_over_time) if value == 0])
+num_buyer_iteration_over_time = np.delete(num_buyer_iteration_over_time, [index for index, value in enumerate(num_buyer_iteration_over_time) if value == 0])
+num_seller_iteration_over_time = np.delete(num_seller_iteration_over_time, [index for index, value in enumerate(num_seller_iteration_over_time) if value == 0])
+print(np.mean(num_global_iteration_over_time))
+print(np.mean(num_buyer_iteration_over_time))
+print(np.mean(num_seller_iteration_over_time))
+
 """DATA PROCESSING, oftewel plots"""
-plot_C_P(load_series_total, production_series_total)
 plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_real_over_time, R_real_over_time, c_nominal_over_time)
 
 plot_results(mean_sharing_factors, supplied_over_time_list, demand_over_time, c_nominal_over_time,number_of_buyers_over_time,number_of_sellers_over_time)
@@ -374,10 +366,7 @@ plot_avg_soc_preferred(socs_preferred_over_time, avg_soc_preferred_over_time, ac
 
 plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_total_demand_over_time, E_surplus_over_time, E_total_supply, c_nominal_over_time, N, sim_steps)
 # plot_utility_seller(utilities_sellers_over_time, w_factors_over_time, E_total_demand_over_time, w_nominal_over_time, N, sim_steps)
-
-
 print("done, nu echt")
-
 
 
 """ Run validation """

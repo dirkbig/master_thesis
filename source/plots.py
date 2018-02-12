@@ -53,10 +53,10 @@ def plot_results(mean_sharing_factors, supply_over_time_list, demand_over_time, 
 def plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_real_over_time, R_real_over_time, c_nominal):
     """w_nominal against predicted energy and predicted revenue"""
 
-    R_prediction_over_time_normalised = R_prediction_over_time/max(R_prediction_over_time)
-    E_prediction_over_time_normalised = E_prediction_over_time/max(E_prediction_over_time)
-    E_real_over_time_normalised = E_real_over_time/max(E_real_over_time)
-    R_real_over_time_normalised = R_real_over_time/max(R_real_over_time)
+    # R_prediction_over_time_normalised = R_prediction_over_time/max(R_prediction_over_time)
+    # E_prediction_over_time_normalised = E_prediction_over_time/max(E_prediction_over_time)
+    # E_real_over_time_normalised = E_real_over_time/max(E_real_over_time)
+    # R_real_over_time_normalised = R_real_over_time/max(R_real_over_time)
 
     fig_w_nominal_progression = plt.figure(figsize=(10,10))
     ax1 = fig_w_nominal_progression.add_subplot(211)
@@ -172,8 +172,6 @@ def plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_total_d
     plt.suptitle('utility buyer')
     fig_buyers.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_buyers.pdf', bbox_inches='tight')  # save the figure to file
 
-    plt.show()
-
 def plot_utility_seller(utilities_sellers_over_time, w_factors_over_time, E_total_demand_over_time, w_nominal_over_time, N, steps):
 
     utilities_sellers_total_series = np.zeros(steps)
@@ -208,7 +206,6 @@ def plot_utility_seller(utilities_sellers_over_time, w_factors_over_time, E_tota
     ax3.legend()
 
     plt.suptitle('utility buyer')
-    plt.show()
 
 
 
@@ -368,7 +365,16 @@ def plot_C_P(load_series_total, production_series_total):
 
     return
 
+def plot_iterations(global_iteration_over_time, buyer_iteration_over_time, seller_iteration_over_time):
 
+    fig_plot_iterations = plt.figure(figsize=(20,5))
+
+    plt.plot(global_iteration_over_time, label='global-level iterations')
+    plt.plot(buyer_iteration_over_time, label='buyers-level iterations')
+    plt.plot(seller_iteration_over_time, label='sellers-level iterations')
+    plt.show
+
+    fig_plot_iterations.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_iterations.pdf', bbox_inches='tight')  # save the figure to file
 
 
 """ TODO 

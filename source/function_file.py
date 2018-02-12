@@ -1,27 +1,21 @@
 import csv
 import pdb
 import random
+import math
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 # from source.plots import *
 
-"""GLOABAL optimization variable"""
-
-
-
-
 lambda11 = 2
 lambda12 = 1
 lambda21 = 2
 lambda22 = 2
-
 lambda_set = [lambda11, lambda12, lambda21, lambda22]
 
 
 """ DATA """
-
 def check_file(filename):
     with open(filename) as csvfile:
         CSVread_check = csv.reader(csvfile, delimiter=';')
@@ -31,6 +25,7 @@ def check_file(filename):
 
 
 def get_usable():
+    """ Determines which files can be used as data-sets to agents"""
     list_usable_folders = np.array([])
     with open('/Users/dirkvandenbiggelaar/Desktop/DATA/list_of_prod_folders.csv') as list_of_prod_folders:
         csv_usable = csv.reader(list_of_prod_folders, delimiter=',')
@@ -39,7 +34,9 @@ def get_usable():
         return list_usable_folders, len(list_usable_folders)
 
 
-def read_csv_production(filename,duration):                                    # still using a single load pattern for all houses
+
+def read_csv_production(filename,duration):
+    """ Read in usable data for production of agents"""
     """Reads in load and generation data from data set"""
     with open(filename) as csvfile:
         CSVread = csv.reader(csvfile, delimiter=',')
@@ -55,8 +52,8 @@ def read_csv_production(filename,duration):                                    #
         return data_return
 
 
-def read_csv_load(filename,duration):                                    # still using a single load pattern for all houses
-    """Reads in load and generation data from data set"""
+def read_csv_load(filename,duration):
+    """ Read in usable data for load of agents"""
     with open(filename) as csvfile:
         CSVread = csv.reader(csvfile, delimiter=',')
         data_return = np.array([])
@@ -70,8 +67,6 @@ def read_csv_load(filename,duration):                                    # still
         return data_return
 
 
-
-"""READ BACK IN BIG_DATA_FILE"""
 def read_csv_big_data(filename, duration):
     with open(filename) as csvfile:
         CSVread = csv.reader(csvfile, delimiter=',')
@@ -82,17 +77,13 @@ def read_csv_big_data(filename, duration):
         return data_return
 
 
-
 """ ALGORITHM """
-
 def define_pool(consumption_at_round, production_at_round, soc_gap, soc_surplus, charge_rate, discharge_rate):
     """this function has to decide whether agent is a buyer or a seller"""
 
     """Interesting definition of surplus; including battery preference"""
     surplus_per_agent = (production_at_round + soc_surplus/discharge_rate) - (consumption_at_round + soc_gap/charge_rate)
 
-    """Simple definition of surplus"""
-    # surplus_per_agent = production_at_round - consumption_at_round
 
     if surplus_per_agent > 0:
         classification = 'seller'
@@ -122,9 +113,6 @@ def calc_R_j_revenue(R_total, E_j_supply, w_j_storage_factor, E_total_supply):
     """calculation of revenue for seller j depending on allocation to i"""
     R_j = R_total * (E_j_supply*w_j_storage_factor)/E_total_supply    # payment_i is E_i*ci = amount of demanded energy * bidding price
     return R_j
-
-
-
 
 
 def get_preferred_soc(soc_preferred, battery_capacity, E_prediction_series, horizon_length):
@@ -162,12 +150,11 @@ def get_preferred_soc_new(batt_capacity_agent, soc_preferred, E_prediction):
     return soc_preferred
 
 
-def allocation_i(E_total_supply,c_i_bidding_price, c_bidding_prices_others):
-
+def allocation_i(E_total_supply, c_i_bidding_price, c_bidding_prices_others):
+    """ calculation of allocation to agent i"""
     if c_i_bidding_price <= 0 or (c_bidding_prices_others + c_i_bidding_price) <= 0:
         E_i_allocation = 0
         return E_i_allocation
-
     try:
         E_i_allocation = E_total_supply * (c_i_bidding_price / (c_bidding_prices_others + c_i_bidding_price))
     except RuntimeWarning:
@@ -183,87 +170,27 @@ def calc_gamma():
     This will involve some model predictive AI"""
 
 def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidding_price_i_prev, bidding_prices_others_opt, E_batt_available, SOC_gap_agent, lambda_set):
-
     """Level 1 game: distributed optimization"""
     """ https: // stackoverflow.com / questions / 17009774 / quadratic - program - qp - solver - that - only - depends - on - numpy - scipy """
     """globally declared variables, do not use somewhere else!!"""
-    # global E_global_buyers, c_S_global_buyers, c_i_global_buyers, c_l_global_buyers, E_i_demand_global
-    #
-    # E_global_buyers = supply_on_step
-    # c_S_global_buyers = c_macro[1]
-    #
-    # c_l_global_buyers = bidding_prices_others_opt
-    # c_i_global_buyers = bidding_price_i_prev
-    #
-    # E_i_demand_global = E_i_demand
-    #
-    # """purely for constraints on max demand"""
-    # E_batt_available_global = E_batt_available
-    # SOC_gap_global = SOC_gap_agent
-
-
-    """ Buyers prediction model for defining penalty on gap between demand and allocation,
-        depending on future prediction and availability of locally stored energy"""
-    # beta = 1 # for now, alpha is just 1
-
-    # initial_conditions = [E_global_buyers, E_i_demand_global, c_l_global_buyers, c_i_global_buyers, beta, SOC_gap_global]
-    # constants = [supply_on_step, E_i_demand, bidding_prices_others_opt, SOC_gap_agent]
-    """ This is a MINIMIZATION of costs"""
     def utility_buyer(c_i, E_i_opt, E_j_opt, c_l_opt, lambda11, lambda12):
-        # x0 = x[0]       # E_global_buyers
-        # x1 = x[1]       # E_i_demand_buyers_global
-        # x2 = x[2]       # c_l_global_buyers
-        # x3 = x[3]       # c_i_global_buyers               unconstrained
-        # beta = x[4]     # prediction weight
-        # soc_gap = x[5]  # SOC_gap_agent
-
         """self designed parametric utility function"""
         """ Closing the gap vs costs for closing the gap"""
+
+
+        # u_i = (abs(E_i_opt - E_j_opt * c_i / (c_l_opt + c_i)))**lambda11 + (c_i * E_j_opt * (c_i/(c_l_opt + c_i)))**lambda12
+        # if RuntimeWarning:
+        #     return 0
+        # return u_i
 
         try:
             return (abs(E_i_opt - E_j_opt * c_i / (c_l_opt + c_i)))**lambda11 + (c_i * E_j_opt * (c_i/(c_l_opt + c_i)))**lambda12
         except RuntimeWarning:
             return 0
 
-        # return (x1 - (x0 * (x3/(x2 + x3))))**lambda11 + (x3 * x0 * (x3/(x2 + x3)))**lambda12
 
-        # """self designed parametric utility function"""
-        # # return x4 * x1 - (x0 * (x3 / x2)) * x3 + (x4 - (x0 * (x3 / x2))) * x1
-        #
-        # """original utility function, minimizes """
-        # # return sign*x0*(x3/x2)*x1 - x0*(x3/x2)*x3
 
-    """fix parameters E_global, c_S_global, c_l_global"""
-    # def constraint_param_x0(x):
-    #     return E_global_buyers - x[0]
-    #
-    # def constraint_param_x1(x):
-    #     return E_i_demand_global - x[1]
-    #
-    # def constraint_param_x2(x):
-    #     return c_l_global_buyers - x[2]
-    #
-    # def constraint_param_x4(x):
-    #     return beta - x[4]
-    #
-    # def constraint_possible_storage(x):
-    #     return (x[0] * (x[3]/(c_l_global_buyers + x[3]))) - E_batt_available_global
 
-    """incorporate various constraints"""
-    # con0 = {'type': 'eq', 'fun': constraint_param_x0}
-    # con1 = {'type': 'eq', 'fun': constraint_param_x1}
-    # con2 = {'type': 'eq', 'fun': constraint_param_x2}
-    # con4 = {'type': 'eq', 'fun': constraint_param_x4}
-    # con_max_batt = {'type': 'ineq', 'fun': constraint_possible_storage}
-    #
-    # x0 = x[0]  # E_global_buyers
-    # x1 = x[1]  # E_i_demand_buyers_global
-    # x2 = x[2]  # c_l_global_buyers
-    # x3 = x[3]  # c_i_global_buyers               unconstrained
-    # beta = x[4]  # prediction weight
-    # soc_gap = x[5]  # SOC_gap_agent
-
-    # cons = [con0, con1, con2, con4, con_max_batt]
     bounds_buyer = [(0, None)]
 
     E_i = E_i_demand
@@ -279,10 +206,6 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
 
     """optimize using SLSQP(?)"""
     sol_buyer = minimize(lambda x : utility_buyer(x, E_i, E_j, c_l, lambda11, lambda12), init, method='SLSQP', bounds=bounds_buyer)
-
-    # sol_buyer = minimize(utility_buyer, initial_conditions, method='SLSQP', bounds=bounds_buyer, constraints=cons)
-    # print("optimization result is a bidding price of %f" % sol.x[3])
-    # print("buyer %d game results in %s" % (id_buyer, sol_buyer.x[3]))
 
     """return 4th element of solution vector."""
     return sol_buyer, sol_buyer.x[0]
@@ -310,8 +233,9 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
     def utility_seller(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt, E_j_p_opt, lambda21, lambda22):
 
         """New Utility"""
-        return - ( (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
+        u_j =  - ( (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
                        + (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22 )
+        return u_j
 
     # def constraint_param_seller0(x):
     #     return Ej_global_sellers - x[0]
@@ -386,7 +310,6 @@ def calc_utility_function_j(id_seller, E_j_seller, R_direct, E_supply_others, R_
 
 
 """PREDICTION"""
-
 def calc_R_prediction(R_total, big_data_file, horizon, agents, steps):
     """defines alpha weight according to future load - production"""
     gap_per_agent = np.zeros(len(agents))
@@ -397,6 +320,10 @@ def calc_R_prediction(R_total, big_data_file, horizon, agents, steps):
     def weight_filter(horizon, distance):
         """ makes distant predictions weight heavier or lighter"""
         return
+
+    if steps == 220:
+        print('220')
+        pass
 
     """calculate gap between load and (local) production"""
     for i in range(horizon):
@@ -425,10 +352,62 @@ def calc_R_prediction(R_total, big_data_file, horizon, agents, steps):
     except RuntimeWarning or sum(E_predicted_total) == 0 or len(horizon) < 10:
         beta = 1
 
+    if math.isnan(beta):
+        beta = 1
+    if math.isnan(alpha):
+        alpha = 1
 
     """ test which one works better"""
     R_prediction =  (beta * R_total + alpha * R_total)/2
-    # R_prediction =  beta * alpha * R_total
+
+    return R_prediction, alpha, beta
+
+def calc_c_prediction():
+    c_prediction = 0.5
+    return c_prediction
+
+
+def calc_R_prediction_masked(R_total, big_data_file, horizon, agents, comm_reach, steps):
+    """defines alpha weight according to future load - production"""
+    gap_per_agent = np.zeros(len(agents))
+    gap = np.zeros(horizon)
+    E_predicted_per_agent = np.zeros(len(agents))
+    E_predicted_total = np.zeros(horizon)
+    E_predicted_per_agent_list_masked = np.zeros(len(comm_reach))
+
+    def weight_filter(horizon, distance):
+        """ makes distant predictions weight heavier or lighter"""
+        return
+
+    """calculate gap between load and (local) production"""
+    for i in range(horizon):
+        # weight_on_value = weight_filter(horizon, distance)
+        for agent in agents[:]:
+            """ Looks at the demand of each agent in the microgrid """
+            gap_per_agent[agent.id] = big_data_file[steps + i][agent.id][0] - big_data_file[steps + i][agent.id][1]
+            """ Looks at generation per household in the microgrid """
+            E_predicted_per_agent[agent.id] = big_data_file[steps + i][agent.id][1]
+        for i in range(len(comm_reach)):
+            E_predicted_per_agent_list_masked[i] = E_predicted_per_agent[comm_reach[i]]
+
+        """ absolute value of gap between production and consumption"""
+        gap[i] = sum(gap_per_agent)
+        if gap[i] < 0:
+            gap[i] = 0
+        E_predicted_total[i] = sum(E_predicted_per_agent_list_masked)
+
+    """ alpha looks at the future availability of energy in the system: predicted surplus"""
+    alpha = gap[0]**0.5/((sum(gap)/horizon)**0.5)
+    if RuntimeWarning or sum(gap) == 0 or len(horizon) < 10 or gap[0] == 0:
+        alpha = 1
+
+    """ beta looks at """
+    beta = E_predicted_total[0]**0.5/((sum(E_predicted_total)/horizon)**0.5)
+    if RuntimeWarning or sum(E_predicted_total) == 0 or len(horizon) < 10 or E_predicted_total[0] == 0:
+        beta = 1
+
+    """ test which one works better"""
+    R_prediction =  (beta * R_total + alpha * R_total)/2
 
     return R_prediction, alpha, beta
 
@@ -475,20 +454,6 @@ def Peukerts_law():
     return
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 """ Functions specific to Validation algorithm"""
 
 def utility_i_validation(E_opt, c_others_opt, c_i_opt):
@@ -516,19 +481,6 @@ def utility_j_validation(E_j_opt, gamma_j_opt, R_j_opt, w_j_val):
 
     return sol_j_validation, sol_j_validation.x[4]
 
-
-
-
-"""testing c_i within domain C_i
-if c_i_price_vector in possible_c_i:
-    print("all fine")
-else:
-    print("macro-grid is competing")
-
-"""
-
-
-"""error/test functions"""
 
 def isNaN(num):
     return num != num

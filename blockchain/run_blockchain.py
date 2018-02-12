@@ -48,7 +48,7 @@ print('break')
 promiser = w3.eth.accounts[1]
 promise = 1000                   #   for now both consuming and producing promise
 print('balance before promise,', w3.eth.getBalance(promiser))
-setter_promise(w3, contract_instance, promiser, promise)
+setter_promise_sell(w3, contract_instance, promiser, promise)
 print('balance after promise,', w3.eth.getBalance(promiser))
 
 print('balance of,', contract_instance.balanceOf(w3.eth.accounts[0]))
