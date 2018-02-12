@@ -1,10 +1,12 @@
 import sys
-import
+from source.initialization import *
 sys.path.append('/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/')
 
+# model = 'sync'
 model = 'sync'
-# model = 'async'
-
+mode = 'batchrunner'
+agents_low = 10
+agents_high = 44
 
 if model == 'sync':
     from source.microgrid_model import *
@@ -15,10 +17,10 @@ from blockchain.smartcontract import *
 from source.plots import *
 import os
 
-# Batch_number_of_agents = 45
-# Batch_comm_reach = 3
 
-def run_mg(sim_steps):
+""" Default init settings"""
+
+def run_mg(sim_steps, N, comm_reach):
 
     np.seterr(all='warn')
 
@@ -41,7 +43,6 @@ def run_mg(sim_steps):
 
 
     usable, length_usable = get_usable()
-    print(length_usable)
     if length_usable < N:
         sys.exit("Number of useable datasets is smaller than number of agents")
 
@@ -244,10 +245,10 @@ def run_mg(sim_steps):
 
     """Model creation"""
     if model == 'sync':
-        model_testrun = MicroGrid_sync(N, big_data_file, starting_point)        # create microgrid model with N agents
+        model_testrun = MicroGrid_sync(big_data_file, starting_point, N)        # create microgrid model with N agents
 
     if model == 'async':
-        model_testrun = MicroGrid_async(N, big_data_file, starting_point)        # create microgrid model with N agents
+        model_testrun = MicroGrid_async(big_data_file, starting_point, N, comm_reach)        # create microgrid model with N agents
 
 
     """Microgrid ABM makes steps over the duration of the simulation, data collection"""
@@ -295,7 +296,7 @@ def run_mg(sim_steps):
         soc_preferred_list, avg_soc_preferred, \
         E_total_demand_list, c_nominal_list, E_surplus_list, \
         num_global_iteration, num_buyer_iteration, num_seller_iteration \
-                = model_testrun.step()
+                = model_testrun.step(N)
 
         # E_real == supplied_on_step
 
@@ -341,18 +342,13 @@ def run_mg(sim_steps):
             print("done, nu nog plotjes")
             break
 
-
-
-
-
-
     plot_iterations(num_global_iteration_over_time, num_buyer_iteration_over_time,num_seller_iteration_over_time)
     num_global_iteration_over_time = np.delete(num_global_iteration_over_time, [index for index, value in enumerate(num_global_iteration_over_time) if value == 0])
     num_buyer_iteration_over_time = np.delete(num_buyer_iteration_over_time, [index for index, value in enumerate(num_buyer_iteration_over_time) if value == 0])
     num_seller_iteration_over_time = np.delete(num_seller_iteration_over_time, [index for index, value in enumerate(num_seller_iteration_over_time) if value == 0])
-    print(np.mean(num_global_iteration_over_time))
-    print(np.mean(num_buyer_iteration_over_time))
-    print(np.mean(num_seller_iteration_over_time))
+    global_mean = np.mean(num_global_iteration_over_time)
+    buyer_mean = np.mean(num_buyer_iteration_over_time)
+    seller_mean = np.mean(num_seller_iteration_over_time)
 
     """DATA PROCESSING, oftewel plots"""
     plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_real_over_time, R_real_over_time, c_nominal_over_time)
@@ -370,11 +366,35 @@ def run_mg(sim_steps):
     # plot_utility_seller(utilities_sellers_over_time, w_factors_over_time, E_total_demand_over_time, w_nominal_over_time, N, sim_steps)
     print("done, nu echt")
 
-    return
+    return global_mean, buyer_mean, seller_mean
 
 
-""" Batchrunner """
+list_mean_iterations_batch = np.zeros((len(range(agents_low, agents_high)), 3))
 
+""" Run Normal"""
+if mode == 'normal':
+    N = 12
+    comm_radius = 3
+    run_mg(sim_steps, N, comm_radius)
 
-run_mg(sim_steps)
+""" Run in Batchrunner """
+if mode == 'batchrunner':
+    for num_agents in range(agents_low, agents_high):
+        if model == 'sync':
+            radius = None
+            global_mean, buyer_mean, seller_mean = run_mg(sim_steps, num_agents, radius)
+            print(global_mean, buyer_mean, seller_mean)
+        elif model == 'async':
+            """ adaptive communication topology (depending on size of grid)"""
+            comm_radius_low = int((num_agents-1)/4)
+            comm_radius_high = int((num_agents-1)/2)
+            for radius in range(comm_radius_low, comm_radius_high):
+                global_mean, buyer_mean, seller_mean = run_mg(sim_steps, num_agents, radius)
+                print(global_mean, buyer_mean, seller_mean)
+
+        list_mean_iterations_batch[num_agents - agents_low][:] = global_mean, buyer_mean, seller_mean
+        np.save('/Users/dirkvandenbiggelaar/Desktop/python_plots/list_mean_iterations_batch', list_mean_iterations_batch)
+print(list_mean_iterations_batch)
+
+list_mean_iterations_batch_loaded = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/list_mean_iterations_batch.npy')
 

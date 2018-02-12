@@ -1,6 +1,5 @@
 from blockchain.smartcontract import *
 from source.function_file import *
-from source.initialization import *
 import sys
 import numpy as np
 from mesa import Agent, Model
@@ -9,6 +8,33 @@ from mesa import Agent, Model
 #########################
 ### SYNCHRONOUS MODEL ###
 #########################
+"""All starting parameters are initialised"""
+starting_point = 0
+stopping_point = 7200 - starting_point - 4000
+step_day = 1440
+timestep = 5
+days = 5
+blockchain = 'off'
+
+step_time = 100
+total_steps = step_day*days
+sim_steps = int(total_steps/step_time)
+
+comm_radius = 10
+
+step_list = np.zeros([sim_steps])
+
+c_S = 10                                             # c_S is selling price of the microgrid
+c_B = 1                                              # c_B is buying price of the microgrid
+c_macro = (c_B, c_S)                                 # Domain of available prices for bidding player i
+possible_c_i = range(c_macro[0], c_macro[1])         # domain of solution for bidding price c_i
+
+e_buyers = 0.001
+e_sellers = 0.001
+e_global = 0.01
+e_cn = 0.01
+e_supply = 0.1
+
 
 class HouseholdAgent(Agent):
 
@@ -74,9 +100,8 @@ class HouseholdAgent(Agent):
         self.w_prediction = 0
         self.solar_capacity = 0
 
-        agent_char = np.ones(N)
         self.soc_actual = random.uniform(0.5 * self.soc_actual, 0.8 * self.soc_actual)
-        self.solar_capacity = agent_char[self.id]
+        self.solar_capacity = 1
 
         self.revenue = 0
         self.payment = 0
@@ -89,7 +114,7 @@ class HouseholdAgent(Agent):
         self.balance_on_bc = 0
 
 
-    def step(self, big_data_file_per_step, big_data_file, E_total_surplus_prediction_per_step, horizon, prediction_range, steps, w3, contract_instance):           # big_data_file = np.zeros((N, step_time, 3))
+    def step(self, big_data_file_per_step, big_data_file, E_total_surplus_prediction_per_step, horizon, prediction_range, steps, w3, contract_instance, N):           # big_data_file = np.zeros((N, step_time, 3))
         """Agent optimization step, what ever specific agents do on during step"""
 
         """real time data"""
@@ -199,7 +224,7 @@ class HouseholdAgent(Agent):
             information on E_demand/E_surplus, initial c_i/w_j """
 
 
-    def broadcast_agent_info(self, w3, contract_instance):
+    def broadcast_agent_info(self, w3, contract_instance, N):
         if blockchain == 'off':
             return
 
@@ -228,7 +253,7 @@ class HouseholdAgent(Agent):
 	    Decide on this.."""
 
 
-    def settlement_of_payments(self, w3, contract_instance):
+    def settlement_of_payments(self, w3, contract_instance, N):
         if blockchain == 'off':
             return
 
@@ -260,7 +285,7 @@ class MicroGrid_sync(Model):
 
 
     """create environment in which agents can operate"""
-    def __init__(self, N, big_data_file, starting_point):
+    def __init__(self, big_data_file, starting_point, N):
         print("Synchronous Model")
         """Initialization and automatic creation of agents"""
 
@@ -350,7 +375,7 @@ class MicroGrid_sync(Model):
         self.num_seller_iteration = 0
 
 
-    def step(self):
+    def step(self, N):
         """Environment proceeds a step after all agents took a step"""
         print("Step =", self.steps)
 
@@ -387,7 +412,7 @@ class MicroGrid_sync(Model):
 
         """Take initial """
         for agent in self.agents[:]:
-            agent.step(self.big_data_file[self.steps], self.big_data_file, self.E_total_surplus_prediction_per_step, horizon, self.prediction_range, self.steps, self.w3, self.contract_instance)
+            agent.step(self.big_data_file[self.steps], self.big_data_file, self.E_total_surplus_prediction_per_step, horizon, self.prediction_range, self.steps, self.w3, self.contract_instance, N)
             if agent.classification == 'buyer':
                 """Level 1 init game among buyers"""
                 self.buyers_pool.append(agent.id)

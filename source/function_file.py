@@ -321,10 +321,6 @@ def calc_R_prediction(R_total, big_data_file, horizon, agents, steps):
         """ makes distant predictions weight heavier or lighter"""
         return
 
-    if steps == 220:
-        print('220')
-        pass
-
     """calculate gap between load and (local) production"""
     for i in range(horizon):
         # weight_on_value = weight_filter(horizon, distance)

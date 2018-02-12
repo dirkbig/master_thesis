@@ -1,6 +1,5 @@
 from blockchain.smartcontract import *
 from source.function_file import *
-from source.initialization import *
 import sys
 
 import numpy as np
@@ -23,12 +22,10 @@ step_day = 1440
 days = 5
 blockchain = 'off'
 
-step_time = 10
+step_time = 100
 total_steps = step_day*days
 sim_steps = int(total_steps/step_time)
 
-N = 40
-comm_radius = 10
 step_list = np.zeros([sim_steps])
 
 c_S = 10                                             # c_S is selling price of the microgrid
@@ -45,7 +42,7 @@ e_supply = 0.1
 class HouseholdAgent(Agent):
 
     """All microgrid household(agents) should be generated here; initialisation of prosumer tools """
-    def __init__(self, unique_id, model, w3, addr, agents_set):
+    def __init__(self, unique_id, model, w3, addr, agents_set, N, comm_radius):
         super().__init__(unique_id, model)
 
         """agent characteristics"""
@@ -141,7 +138,7 @@ class HouseholdAgent(Agent):
         self.E_supply_others_prediction = 0
 
 
-    def step(self, big_data_file_per_step, big_data_file, E_total_surplus_prediction_per_step, horizon, prediction_range, steps, w3, contract_instance, agents_set):           # big_data_file = np.zeros((N, step_time, 3))
+    def step(self, big_data_file_per_step, big_data_file, E_total_surplus_prediction_per_step, horizon, prediction_range, steps, w3, contract_instance, agents_set, N):           # big_data_file = np.zeros((N, step_time, 3))
         """Agent optimization step, what ever specific agents do on during step"""
 
         """real time data"""
@@ -251,16 +248,16 @@ class HouseholdAgent(Agent):
             information on E_demand/E_surplus, initial c_i/w_j """
 
 
-    def optimization_buyers(self):
+    def optimization_buyers(self, N):
         """preparation for update"""
         pass
 
-    def optimization_seller(self):
+
+    def optimization_seller(self, N):
         pass
 
 
-
-    def broadcast_agent_info(self, w3, contract_instance):
+    def broadcast_agent_info(self, w3, contract_instance, N):
         if blockchain == 'off':
             return
 
@@ -320,7 +317,7 @@ class MicroGrid_async(Model):
 
     """create environment in which agents can operate"""
 
-    def __init__(self, N, big_data_file, starting_point):
+    def __init__(self, big_data_file, starting_point, N, comm_radius):
 
         """Initialization and automatic creation of agents"""
 
@@ -393,7 +390,7 @@ class MicroGrid_async(Model):
         """create a set of N agents with activations schedule and e = unique id"""
         for i in range(self.num_households):
             addr = i + 1
-            agent = HouseholdAgent(i, self, self.w3, addr, self.agents)
+            agent = HouseholdAgent(i, self, self.w3, addr, self.agents, N, comm_radius)
             self.agents.append(agent)
 
         if blockchain == 'on':
@@ -414,7 +411,7 @@ class MicroGrid_async(Model):
 
 
 
-    def step(self):
+    def step(self, N):
         """Environment proceeds a step after all agents took a step"""
         print("Step =", self.steps)
 
@@ -455,7 +452,7 @@ class MicroGrid_async(Model):
 
         """Take initial """
         for agent in self.agents[:]:
-            agent.step(self.big_data_file[self.steps], self.big_data_file, self.E_total_surplus_prediction_per_step, horizon, self.prediction_range, self.steps, self.w3, self.contract_instance, self.agents)
+            agent.step(self.big_data_file[self.steps], self.big_data_file, self.E_total_surplus_prediction_per_step, horizon, self.prediction_range, self.steps, self.w3, self.contract_instance, self.agents, N)
             if agent.classification == 'buyer':
                 """Level 1 init game among buyers"""
                 self.buyers_pool.append(agent.id)

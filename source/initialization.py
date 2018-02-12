@@ -9,12 +9,9 @@ timestep = 5
 days = 5
 blockchain = 'off'
 
-step_time = 5
+step_time = 100
 total_steps = step_day*days
 sim_steps = int(total_steps/step_time)
-
-N = 20
-comm_radius = 10
 
 step_list = np.zeros([sim_steps])
 
