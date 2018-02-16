@@ -10,13 +10,13 @@ from mesa import Agent, Model
 #########################
 """All starting parameters are initialised"""
 starting_point = 0
-stopping_point = 7200 - starting_point - 4000
+stopping_point = 7200 - starting_point - 1000
 step_day = 1440
 timestep = 5
 days = 5
 blockchain = 'off'
 
-step_time = 100
+step_time = 10
 total_steps = step_day*days
 sim_steps = int(total_steps/step_time)
 

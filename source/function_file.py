@@ -231,7 +231,9 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
         """New Utility"""
         u_j =  - ( (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
                        + (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22 )
-        return u_j
+
+        return - ( (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
+                       + (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22 )
 
     # def constraint_param_seller0(x):
     #     return Ej_global_sellers - x[0]
@@ -261,7 +263,7 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
     #
     # cons_seller = [con_seller0, con_seller1, con_seller2, con_seller3, con_seller4]
 
-    bounds_seller = [(lower_bound_on_w_j, 1.0)]
+    bounds_seller = [(min(lower_bound_on_w_j, 0.99), 1.0)]
 
     R_p = R_prediction
     E_j = E_j_seller

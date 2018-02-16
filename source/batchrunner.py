@@ -3,13 +3,13 @@ from source.initialization import *
 sys.path.append('/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/')
 
 
-# mode = 'normal'
-mode = 'batchrunner'
+mode = 'normal'
+# mode = 'batchrunner'
 
 
-model = 'pso'
-# model = 'sync'
-# model = 'sync'
+#model = 'pso'
+#model = 'sync'
+model = 'async'
 
 agents_low = 5
 agents_high = 20
@@ -124,110 +124,6 @@ def run_mg(sim_steps, N, comm_reach, lambda_set):
         avg_max_load[i][0] = np.sum(load_file_agents[i]) / total_steps
         avg_max_load[i][1] = np.amax(load_file_agents[i])
 
-    """Read in real test-data: this is pretty shitty"""
-    #
-    # """Assign data files"""
-    # load = "load_test.csv"           # load has comma
-    # production = "solar_test.csv"    # solar has semicolon
-    #
-    #
-    #"""Loads in data of a typical agent"""
-    # for agent in range(N):
-    #     load_file_agents[agent] = read_csv(load, total_step)
-    #     production_file_agents[agent] = read_csv(production, total_step)
-    #     battery_file_agents[agent] = np.ones(total_step)
-
-    """Test with test data: this is almost complete shit"""
-    # """test - data for a typical agent"""
-    # test_load = ["test_datafiles.test_load_2_csv.csv","/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_noload_3_csv.csv"]
-    # test_production = ["/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_production_1_csv.csv", "/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_production_2_csv.csv","/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_noproduction_3_csv.csv"]
-    # test_battery = "/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_battery_forall_csv.csv"
-
-    # test_load_file_agents = np.zeros((N,duration))
-    # test_production_file_agents = np.zeros((N,duration))
-    # test_battery_file_agents = np.zeros((N,duration))
-    # # master_file = np.zeros((N, duration, 3))
-
-    # for testagent in range(N):
-    #     test_load_file_agents[testagent] = test_load_file_agents[testagent]         # read_csv([testagent], duration)
-    #     test_production_file_agents[testagent] = test_production_file_agents[testagent]            # read_csv(test_production[testagent], duration)
-    #     test_battery_file_agents[testagent] = test_battery_file_agents         # read_csv(test_battery, duration) # all the same battery ""
-
-    """Fake test data: this is actual complete shit"""
-    # test_load_file_agents =     [ \
-    #                             [100, 300   ,100, 100,100, 100, 100, 100,100,100],
-    #                             [100, 100   ,100, 100,100, 100, 100, 100,100,100],
-    #                             [0  , 0     ,0,0,0,0,0,0,0,0],
-    #                             [1000, 100   ,100, 100,100, 100, 100, 100,100,100],
-    #                             [0  , 0     ,0,0,0,0,0,0,0,0],
-    #                             [100, 100   ,100, 100,100, 100, 100, 100,100,100],
-    #                             [70 , 100   ,100, 100,100, 100, 100, 100,100,100],
-    #                             [0  , 0     ,0,0,0,0,0,0,0,0],
-    #                             [50 , 100   ,100, 100,100, 100, 100, 100,100,100],
-    #                             [0  , 0     ,0,0,0,0,0,0,0,0]]
-    #
-    # test_production_file_agents =  [ \
-    #                              [0  ,  30  ,0,0,0,0,0,0,0,0],
-    #                              [0  ,  0    ,0,0,0,0,0,0,0,0],
-    #                              [20,  310  ,150,200,150,150,150,150,150,150],
-    #                              [0  ,  0    ,0,0,0,0,0,0,0,0],
-    #                              [150,  330   ,150,150,150,150,150,150,150,150],
-    #                              [0  ,  0    ,0,0,0,0,0,0,0,0],
-    #                              [0  ,  0    ,0,0,0,0,0,0,0,0],
-    #                              [150,  50   ,150,150,150,150,150,150,150,150],
-    #                              [0  ,  0    ,0,0,0,0,0,0,0,0],
-    #                              [150,  150  ,150,150,150,150,150,150,150,150]]
-    #
-    # test_battery_file_agents = [100, 100, 100, 100,100, 100, 100, 100,100,100]
-    #
-    # big_data_file = np.zeros((duration, N, 3))             # list of data_file entries per agents
-    # for i in range(duration):
-    #     agent_file = np.zeros((N, 3))  # agent_file
-    #     for j in range(N):
-    #         big_data_file[i][j][0] = test_load_file_agents[j][i]            # *(random.uniform(0.9, 1.2))
-    #         big_data_file[i][j][1] = test_production_file_agents[j][i]      # *(random.uniform(0.9, 1.2))
-    #         big_data_file[i][j][2] = test_battery_file_agents[i]
-
-
-
-
-
-
-    #
-    #
-
-    """write to a big_data_files"""
-    # for i in range(N):
-    #     with open('/Users/dirkvandenbiggelaar/Desktop/DATA/big_data_file_load/data_load_agent' + str(int(i)) + '.csv', 'w', newline='') as data_load_agent:
-    #         writer = csv.writer(data_load_agent)
-    #         for j in range(len(load_file_agents[i])):
-    #             writer.writerow([load_file_agents[i][j]])
-    #     with open('/Users/dirkvandenbiggelaar/Desktop/DATA/big_data_file_production/data_production_agent' + str(int(i)) + '.csv', 'w', newline='') as data_production_agent:
-    #         writer = csv.writer(data_production_agent)
-    #         for j in range(len(production_file_agents[i])):
-    #             writer.writerow([production_file_agents[i][j]])
-    #
-    #
-    # # load_file_agents (N,total_step)
-    # # production_file_agents
-    #
-    #
-    # load_file_agents_loaded = np.zeros((N, total_steps))
-    # production_file_agents_loaded = np.zeros((N, total_steps))
-    #
-    # """read in big_data_file"""
-    # agent_id_load = 0
-    #
-    # for file_data in os.listdir("/Users/dirkvandenbiggelaar/Desktop/DATA/big_data_file_load"):
-    #     print()
-    #     load_file_path = "/Users/dirkvandenbiggelaar/Desktop/DATA/big_data_file_load/" + file_data
-    #     load_file_agents_loaded[agent_id_load] = read_csv_big_data(load_file_path, total_steps)
-    #     agent_id_load += 1
-    #
-    # agent_id_load = 0
-    #
-    # plt.plot(load_file_agents_loaded[1])
-    # plt.show()
 
     """Assigns all agents initial load and production prediction for the day"""
     sim_steps = int(total_steps/step_time)
@@ -368,7 +264,6 @@ def run_mg(sim_steps, N, comm_reach, lambda_set):
     seller_mean = np.mean(num_seller_iteration_over_time)
 
     close_all()
-    exit()
     """DATA PROCESSING, oftewel plots"""
     plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_real_over_time, R_real_over_time, c_nominal_over_time)
     plot_results(mean_sharing_factors, supplied_over_time_list, demand_over_time, c_nominal_over_time,number_of_buyers_over_time,number_of_sellers_over_time)
@@ -431,9 +326,6 @@ def run_mg_pso(sim_steps, N, comm_reach, lambda_set):
         if number_of_files > (N*days - 1):
             break
 
-    # sudoPassword = 'biggelaar'
-    # command = 'sudo find /Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION -name ".DS_Store" -depth -exec rm {} \;'
-    # os.system('echo %s|sudo -S %s' % (sudoPassword, command))
 
     agent_id_prod = 0
     number_of_files = 0
@@ -472,111 +364,6 @@ def run_mg_pso(sim_steps, N, comm_reach, lambda_set):
         avg_max_production[i][1] = np.amax(production_file_agents[i])
         avg_max_load[i][0] = np.sum(load_file_agents[i]) / total_steps
         avg_max_load[i][1] = np.amax(load_file_agents[i])
-
-    """Read in real test-data: this is pretty shitty"""
-    #
-    # """Assign data files"""
-    # load = "load_test.csv"           # load has comma
-    # production = "solar_test.csv"    # solar has semicolon
-    #
-    #
-    #"""Loads in data of a typical agent"""
-    # for agent in range(N):
-    #     load_file_agents[agent] = read_csv(load, total_step)
-    #     production_file_agents[agent] = read_csv(production, total_step)
-    #     battery_file_agents[agent] = np.ones(total_step)
-
-    """Test with test data: this is almost complete shit"""
-    # """test - data for a typical agent"""
-    # test_load = ["test_datafiles.test_load_2_csv.csv","/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_noload_3_csv.csv"]
-    # test_production = ["/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_production_1_csv.csv", "/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_production_2_csv.csv","/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_noproduction_3_csv.csv"]
-    # test_battery = "/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/test_data/test_battery_forall_csv.csv"
-
-    # test_load_file_agents = np.zeros((N,duration))
-    # test_production_file_agents = np.zeros((N,duration))
-    # test_battery_file_agents = np.zeros((N,duration))
-    # # master_file = np.zeros((N, duration, 3))
-
-    # for testagent in range(N):
-    #     test_load_file_agents[testagent] = test_load_file_agents[testagent]         # read_csv([testagent], duration)
-    #     test_production_file_agents[testagent] = test_production_file_agents[testagent]            # read_csv(test_production[testagent], duration)
-    #     test_battery_file_agents[testagent] = test_battery_file_agents         # read_csv(test_battery, duration) # all the same battery ""
-
-    """Fake test data: this is actual complete shit"""
-    # test_load_file_agents =     [ \
-    #                             [100, 300   ,100, 100,100, 100, 100, 100,100,100],
-    #                             [100, 100   ,100, 100,100, 100, 100, 100,100,100],
-    #                             [0  , 0     ,0,0,0,0,0,0,0,0],
-    #                             [1000, 100   ,100, 100,100, 100, 100, 100,100,100],
-    #                             [0  , 0     ,0,0,0,0,0,0,0,0],
-    #                             [100, 100   ,100, 100,100, 100, 100, 100,100,100],
-    #                             [70 , 100   ,100, 100,100, 100, 100, 100,100,100],
-    #                             [0  , 0     ,0,0,0,0,0,0,0,0],
-    #                             [50 , 100   ,100, 100,100, 100, 100, 100,100,100],
-    #                             [0  , 0     ,0,0,0,0,0,0,0,0]]
-    #
-    # test_production_file_agents =  [ \
-    #                              [0  ,  30  ,0,0,0,0,0,0,0,0],
-    #                              [0  ,  0    ,0,0,0,0,0,0,0,0],
-    #                              [20,  310  ,150,200,150,150,150,150,150,150],
-    #                              [0  ,  0    ,0,0,0,0,0,0,0,0],
-    #                              [150,  330   ,150,150,150,150,150,150,150,150],
-    #                              [0  ,  0    ,0,0,0,0,0,0,0,0],
-    #                              [0  ,  0    ,0,0,0,0,0,0,0,0],
-    #                              [150,  50   ,150,150,150,150,150,150,150,150],
-    #                              [0  ,  0    ,0,0,0,0,0,0,0,0],
-    #                              [150,  150  ,150,150,150,150,150,150,150,150]]
-    #
-    # test_battery_file_agents = [100, 100, 100, 100,100, 100, 100, 100,100,100]
-    #
-    # big_data_file = np.zeros((duration, N, 3))             # list of data_file entries per agents
-    # for i in range(duration):
-    #     agent_file = np.zeros((N, 3))  # agent_file
-    #     for j in range(N):
-    #         big_data_file[i][j][0] = test_load_file_agents[j][i]            # *(random.uniform(0.9, 1.2))
-    #         big_data_file[i][j][1] = test_production_file_agents[j][i]      # *(random.uniform(0.9, 1.2))
-    #         big_data_file[i][j][2] = test_battery_file_agents[i]
-
-
-
-
-
-
-    #
-    #
-
-    """write to a big_data_files"""
-    # for i in range(N):
-    #     with open('/Users/dirkvandenbiggelaar/Desktop/DATA/big_data_file_load/data_load_agent' + str(int(i)) + '.csv', 'w', newline='') as data_load_agent:
-    #         writer = csv.writer(data_load_agent)
-    #         for j in range(len(load_file_agents[i])):
-    #             writer.writerow([load_file_agents[i][j]])
-    #     with open('/Users/dirkvandenbiggelaar/Desktop/DATA/big_data_file_production/data_production_agent' + str(int(i)) + '.csv', 'w', newline='') as data_production_agent:
-    #         writer = csv.writer(data_production_agent)
-    #         for j in range(len(production_file_agents[i])):
-    #             writer.writerow([production_file_agents[i][j]])
-    #
-    #
-    # # load_file_agents (N,total_step)
-    # # production_file_agents
-    #
-    #
-    # load_file_agents_loaded = np.zeros((N, total_steps))
-    # production_file_agents_loaded = np.zeros((N, total_steps))
-    #
-    # """read in big_data_file"""
-    # agent_id_load = 0
-    #
-    # for file_data in os.listdir("/Users/dirkvandenbiggelaar/Desktop/DATA/big_data_file_load"):
-    #     print()
-    #     load_file_path = "/Users/dirkvandenbiggelaar/Desktop/DATA/big_data_file_load/" + file_data
-    #     load_file_agents_loaded[agent_id_load] = read_csv_big_data(load_file_path, total_steps)
-    #     agent_id_load += 1
-    #
-    # agent_id_load = 0
-    #
-    # plt.plot(load_file_agents_loaded[1])
-    # plt.show()
 
     """Assigns all agents initial load and production prediction for the day"""
     sim_steps = int(total_steps/step_time)
@@ -633,149 +420,16 @@ def run_mg_pso(sim_steps, N, comm_reach, lambda_set):
         load_demand_list_over_time[i] =  sum(load_demand_list)
         battery_soc_list_over_time[i]  =  np.mean(battery_soc_list)
 
+    close_all()
     plot_PSO(results_over_time, P_supply_list_over_time, P_demand_list_over_time, gen_output_list_over_time, load_demand_list_over_time, battery_soc_list_over_time, N, sim_steps)
 
     """ PSO results"""
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # """Microgrid ABM makes steps over the duration of the simulation, data collection"""
-    # duration_test = sim_steps
-    # supplied_over_time_list = np.zeros(sim_steps)
-    # mean_sharing_factors = np.zeros(sim_steps)
-    # demand_over_time = np.zeros(sim_steps)
-    # c_nominal_over_time = np.zeros(sim_steps)
-    # number_of_buyers_over_time = np.zeros(sim_steps)
-    # number_of_sellers_over_time = np.zeros(sim_steps)
-    # w_nominal_over_time = np.zeros(sim_steps)
-    # R_prediction_over_time = np.zeros(sim_steps)
-    # E_prediction_over_time = np.zeros(sim_steps)
-    # R_real_over_time = np.zeros(sim_steps)
-    # E_real_over_time = np.zeros(sim_steps)
-    # utilities_buyers_over_time = np.zeros((sim_steps, N, 4))
-    # utilities_sellers_over_time = np.zeros((sim_steps, N, 3))
-    #
-    # surplus_on_step_over_time = np.zeros(sim_steps)
-    # supplied_on_step_over_time = np.zeros(sim_steps)
-    # demand_on_step_over_time = np.zeros(sim_steps)
-    #
-    # """ batteries """
-    # actual_batteries_over_time = np.zeros((N, sim_steps))
-    # E_total_supply_over_time = np.zeros(sim_steps)
-    # E_demand_over_time = np.zeros(sim_steps)
-    # avg_soc_preferred_over_time = np.zeros(sim_steps)
-    # socs_preferred_over_time = np.zeros((N, sim_steps))
-    # E_total_demand_over_time = np.zeros((N, sim_steps))
-    # c_prices_over_time = np.zeros((N, sim_steps))
-    # E_surplus_over_time = np.zeros((N, sim_steps))
-    #
-    # num_global_iteration_over_time = np.zeros(sim_steps)
-    # num_buyer_iteration_over_time = np.zeros(sim_steps)
-    # num_seller_iteration_over_time = np.zeros(sim_steps)
-    # profit_list_over_time = np.zeros((N,sim_steps))
-    # profit_list_summed_over_time = np.zeros(sim_steps)
-    # """Run that fucker"""
-    # for i in range(sim_steps):
-    #     """ Data collection"""
-    #     surplus_on_step, supplied_on_step, demand_on_step, \
-    #     buyers, sellers, sharing_factors, \
-    #     c_nominal_per_step, w_nominal, \
-    #     R_prediction_step, E_prediction_step, E_real, R_real, \
-    #     actual_batteries, E_total_supply, E_demand, \
-    #     utilities_buyers, utilities_sellers, \
-    #     soc_preferred_list, avg_soc_preferred, \
-    #     E_total_demand_list, c_nominal_list, E_surplus_list, \
-    #     num_global_iteration, num_buyer_iteration, num_seller_iteration,\
-    #     profit_list \
-    #             = model_run.step(N, lambda_set)
-    #
-    #     # E_real == supplied_on_step
-    #     profit_list_summed_over_time[i] = sum(profit_list)
-    #     mean_sharing_factors[i] = np.mean(sharing_factors)
-    #     supplied_over_time_list[i] = supplied_on_step
-    #     demand_over_time[i] = demand_on_step
-    #     c_nominal_over_time[i] = c_nominal_per_step
-    #     avg_soc_preferred_over_time[i] = avg_soc_preferred
-    #     """ Fix this """
-    #     number_of_buyers_over_time[i] = len(buyers)
-    #     number_of_sellers_over_time[i] = len(sellers)
-    #
-    #     surplus_on_step_over_time[i] = surplus_on_step
-    #     supplied_on_step_over_time[i] = supplied_on_step
-    #     demand_on_step_over_time[i] = demand_on_step
-    #
-    #
-    #     R_prediction_over_time[i] = R_prediction_step
-    #     E_prediction_over_time[i] = E_prediction_step
-    #     w_nominal_over_time[i] = w_nominal
-    #     R_real_over_time[i] = R_real
-    #     E_real_over_time[i] = E_real
-    #
-    #     for agent in range(N):
-    #         actual_batteries_over_time[agent][i] = actual_batteries[agent]
-    #         E_total_demand_over_time[agent][i] = E_total_demand_list[agent]
-    #         c_prices_over_time[agent][i] = c_nominal_list[agent]
-    #         E_surplus_over_time[agent][i] = E_surplus_list[agent]
-    #         socs_preferred_over_time[agent][i] = soc_preferred_list[agent]
-    #         profit_list_over_time[agent][i] = profit_list[agent]
-    #     utilities_sellers_over_time[i][:][:] = utilities_sellers
-    #     utilities_buyers_over_time[i][:][:] = utilities_buyers
-    #
-    #     E_surplus_over_time
-    #     E_total_supply_over_time[i] = E_total_supply
-    #     E_demand_over_time[i] = E_demand
-    #     # print(utilities_sellers, 'utilities_sellers')
-    #     # print(utilities_sellers_over_time, 'utilities_sellers_over_time')
-    #     num_global_iteration_over_time[i] = num_global_iteration
-    #     num_buyer_iteration_over_time[i] = num_buyer_iteration
-    #     num_seller_iteration_over_time[i] = num_seller_iteration
-    #     if i >= stopping_point/step_time:
-    #         print("done, nu nog plotjes")
-    #         break
-    #
-    # plot_profits(profit_list_over_time, profit_list_summed_over_time, N)
-    # plot_iterations(num_global_iteration_over_time, num_buyer_iteration_over_time,num_seller_iteration_over_time)
-    # num_global_iteration_over_time = np.delete(num_global_iteration_over_time, [index for index, value in enumerate(num_global_iteration_over_time) if value == 0])
-    # num_buyer_iteration_over_time = np.delete(num_buyer_iteration_over_time, [index for index, value in enumerate(num_buyer_iteration_over_time) if value == 0])
-    # num_seller_iteration_over_time = np.delete(num_seller_iteration_over_time, [index for index, value in enumerate(num_seller_iteration_over_time) if value == 0])
-    # global_mean = np.mean(num_global_iteration_over_time)
-    # buyer_mean = np.mean(num_buyer_iteration_over_time)
-    # seller_mean = np.mean(num_seller_iteration_over_time)
-    #
-    # close_all()
-    # exit()
-    # """DATA PROCESSING, oftewel plots"""
-    # plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_real_over_time, R_real_over_time, c_nominal_over_time)
-    # plot_results(mean_sharing_factors, supplied_over_time_list, demand_over_time, c_nominal_over_time,number_of_buyers_over_time,number_of_sellers_over_time)
-    # plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_time, E_demand_over_time, N)
-    # plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, sim_steps)
-    # plot_supplied_vs_surplus_total(surplus_on_step_over_time, supplied_on_step_over_time, demand_on_step_over_time)
-    # plot_input_data(big_data_file, sim_steps, N)
-    # plot_avg_soc_preferred(socs_preferred_over_time, avg_soc_preferred_over_time, actual_batteries_over_time, N, sim_steps)
-    # plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_total_demand_over_time, E_surplus_over_time, E_total_supply, c_nominal_over_time, N, sim_steps)
-    # # plot_utility_seller(utilities_sellers_over_time, w_factors_over_time, E_total_demand_over_time, w_nominal_over_time, N, sim_steps)
-    #
-    # print("done, nu echt")
-    #
-    # return global_mean, buyer_mean, seller_mean
 
 list_mean_iterations_batch = np.zeros((len(range(agents_low, agents_high)), 3))
 
 """ Run normal"""
 if mode == 'normal':
-    N = 10
+    N = 14
     comm_radius = 3
     if model == 'sync':
         comm_radius = None

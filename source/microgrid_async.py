@@ -317,7 +317,7 @@ class MicroGrid_async(Model):
 
     """create environment in which agents can operate"""
 
-    def __init__(self, big_data_file, starting_point, N, comm_radius):
+    def __init__(self, big_data_file, starting_point, N, comm_radius, lambda_set):
 
         """Initialization and automatic creation of agents"""
 
@@ -411,7 +411,7 @@ class MicroGrid_async(Model):
 
 
 
-    def step(self, N):
+    def step(self, N, lambda_set):
         """Environment proceeds a step after all agents took a step"""
         print("Step =", self.steps)
 
@@ -809,5 +809,5 @@ class MicroGrid_async(Model):
                self.utilities_buyers, self.utilities_sellers, \
                self.soc_preferred, avg_soc_preferred, \
                self.E_total_demand_list, self.c_bidding_prices, self.E_surplus_list, \
-               self.num_global_iteration,self.num_buyer_iteration, self.num_seller_iteration
+               self.num_global_iteration,self.num_buyer_iteration, self.num_seller_iteration, TODOprofit_list
 
