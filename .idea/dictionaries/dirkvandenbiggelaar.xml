@@ -2,10 +2,12 @@
   <dictionary name="dirkvandenbiggelaar">
     <words>
       <w>addr</w>
+      <w>batchrunner</w>
       <w>batt</w>
       <w>batterycapacity</w>
       <w>biddings</w>
       <w>blockchain</w>
+      <w>costfunction</w>
       <w>csvfile</w>
       <w>incoorporate</w>
       <w>ofbuy</w>

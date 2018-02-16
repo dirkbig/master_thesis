@@ -6,13 +6,9 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
+
 # from source.plots import *
 
-lambda11 = 2
-lambda12 = 1
-lambda21 = 2
-lambda22 = 2
-lambda_set = [lambda11, lambda12, lambda21, lambda22]
 
 
 """ DATA """

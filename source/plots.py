@@ -3,6 +3,9 @@ import seaborn as sns
 sns.set()
 import numpy as np
 
+def close_all():
+    plt.close("all")
+
 def plot_E_total_surplus_prediction_per_step(E_total_surplus_prediction_per_step, N):
     # plt.plot(E_total_surplus_prediction_per_step/N)
     # plt.show()
@@ -375,6 +378,49 @@ def plot_iterations(global_iteration_over_time, buyer_iteration_over_time, selle
     plt.show
 
     fig_plot_iterations.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_iterations.pdf', bbox_inches='tight')  # save the figure to file
+
+
+
+def plot_profits(profit_list_over_time, profit_list_summed_over_time, N):
+
+    fig_plot_profits = plt.figure(figsize=(20,5))
+    # for agent in range(N):
+    #     plt.plot(profit_list_over_time[agent][:], label='profits')
+
+    plt.plot(profit_list_summed_over_time)
+    plt.show
+
+
+    fig_plot_profits.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_profits.pdf', bbox_inches='tight')  # save the figure to file
+
+
+def plot_PSO(results_over_time, P_supply_list_over_time, P_demand_list_over_time, gen_output_list_over_time, load_demand_list_over_time, avg_battery_soc_list_over_time, N, sim_steps):
+
+    fig_plot_PSO_dispatch = plt.figure(figsize=(20,5))
+    ax1 = fig_plot_PSO_dispatch.add_subplot(211)
+    ax2 = fig_plot_PSO_dispatch.add_subplot(212)
+
+    total_supply_on_step = np.zeros(sim_steps)
+    for step in range(sim_steps):
+        supply_per_agent_on_step = 0
+        for agent in range(N):
+            supply_per_agent_on_step += results_over_time[agent][step]
+        total_supply_on_step[step] = supply_per_agent_on_step
+        # ax1.plot(results_over_time[agent][:])
+
+    ax1.plot(total_supply_on_step, label='Generator dispatch optimized')
+    ax1.plot(P_supply_list_over_time, label='Generator dispatch maximum')
+    ax1.plot(P_demand_list_over_time, label='Demand of households total')
+
+    ax2.plot(gen_output_list_over_time, label='gen_output_list_over_time')
+    ax2.plot(load_demand_list_over_time, label='load_demand_list_over_time')
+    ax2.plot(avg_battery_soc_list_over_time, label='mean battery over time')
+
+    plt.legend()
+
+    plt.show()
+
+    fig_plot_PSO_dispatch.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_PSO_dispatch.pdf', bbox_inches='tight')  # save the figure to file
 
 
 """ TODO 
