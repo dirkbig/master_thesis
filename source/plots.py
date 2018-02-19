@@ -333,7 +333,7 @@ def plot_input_data(big_data_file, sim_steps,N):
         ax1.plot(load_series, label='load of agent' + str(int(agent)))
         ax2.plot(production_series, label='production of agent' + str(int(agent)))
 
-    ax3.plot(load_series_total, label='total production')
+    ax3.plot(load_series_total, label='total load')
     ax3.plot(production_series_total, label='total production')
 
 

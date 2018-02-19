@@ -235,34 +235,6 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
         return - ( (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
                        + (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22 )
 
-    # def constraint_param_seller0(x):
-    #     return Ej_global_sellers - x[0]
-    #
-    # def constraint_param_seller1(x):
-    #     return R_total_global_sellers - x[1]
-    #
-    # def constraint_param_seller2(x):
-    #     return E_global_sellers - x[2]
-    #
-    # def constraint_param_seller3(x):
-    #     return R_prediction_global - x[3]
-    #
-    # def constraint_param_seller4(x):
-    #     return E_prediction_global - x[4]
-    #
-    # def constraint_minimum_load():
-    #     """here goes constraints that involve minima/maxima on what-ever the consumer definitely needs"""
-    #     pass
-
-    # """incorporate various constraints"""
-    # con_seller0 = {'type': 'eq', 'fun': constraint_param_seller0}
-    # con_seller1 = {'type': 'eq', 'fun': constraint_param_seller1}
-    # con_seller2 = {'type': 'eq', 'fun': constraint_param_seller2}
-    # con_seller3 = {'type': 'eq', 'fun': constraint_param_seller3}
-    # con_seller4 = {'type': 'eq', 'fun': constraint_param_seller4}
-    #
-    # cons_seller = [con_seller0, con_seller1, con_seller2, con_seller3, con_seller4]
-
     bounds_seller = [(min(lower_bound_on_w_j, 0.99), 1.0)]
 
     R_p = R_prediction
@@ -479,7 +451,83 @@ def utility_j_validation(E_j_opt, gamma_j_opt, R_j_opt, w_j_val):
 def isNaN(num):
     return num != num
 
+""" Costfunction of generation; PSO general"""
+def costfunction(x, *args):
+    """ Costfunction """
+    """ agents specific weights"""
+    alpha_vector_pso = args[0]
+    beta_vector_pso = args[1]
+    gamma_vector_pso = args[2]
+    cost = sum(alpha_vector_pso) + np.dot(beta_vector_pso, x) + np.dot(gamma_vector_pso, x ** 2)
+    return cost
+
+
+""" PSO validation HIERARCHICAL"""
+def buyer_objective_function_PSO(c, args_buyer):
+    """ Costfunction Buyer PSO"""
+    cost_buyers = 0
+
+    """ agents specific weights"""
+    E_i = args_buyer[0]
+    E_j_opt = args_buyer[1]
+    lambda11_arg= args_buyer[2]
+    lambda12_arg = args_buyer[3]
+    N = args_buyer[4]
+    c_l_opt = sum(c)
+
+    for i in range(N):
+        E_i_opt = E_i[i] # demand per agent (buying)
+        _lambda11 = lambda11_arg[i]
+        _lambda12 = lambda12_arg[i]
+
+
+        cost_buyers += abs(E_i_opt - E_j_opt * c[i] / (c_l_opt + c[i])) ** _lambda11 + (c[i] * E_j_opt * (c[i] / (c_l_opt + c[i]))) ** _lambda12
+
+    return cost_buyers
+
+
+def seller_objective_function_PSO(w, args_seller):
+    """ Costfunction Sellers PSO"""
+    cost_sellers = 0
+
+    """ agents specific weights"""
+    R_direct = args_seller[0]           # predicted future profit
+    E_surplus_list = args_seller[1]     # agents surplus energy
+    R_future_list = args_seller[2]      # deterministic direct profit
+    E_predicted_list = args_seller[3]   # predicted future surplus energy
+
+    lambda21 = args_seller[4]
+    lambda22 = args_seller[5]
+    N_seller = args_seller[6]
+
+    for j in range(N_seller):
+        E_surplus_j = E_surplus_list[j]
+        R_future_j = R_future_list[j]
+        E_predicted_j = E_predicted_list[j]
+
+        _lambda21 = lambda21[j]
+        _lambda22 = lambda22[j]
+
+        cost_sellers += - ( (R_future_j * (E_surplus_j * (1 - w[j]) / (E_predicted_j + E_surplus_j * (1 - w[j])))) ** _lambda21 + \
+                            (R_direct * (E_surplus_j * w[j] / (np.dot(w, E_surplus_list)))) ** _lambda22 )
+
+    return cost_sellers
 
 
 
+def combined_objective_function_PSO(x, *args):
+    N_mixed, args_buyer, args_seller = args
+    N = N_mixed[0]
+    N_buyers = N_mixed[1]
+    N_sellers = N_mixed[2]
+    c = x[0:N_buyers]
+    w = x[-N_sellers:N]
 
+    cost_buyers = buyer_objective_function_PSO(c, args_buyer)
+    cost_sellers = seller_objective_function_PSO(w, args_seller)
+    cost_sellers = abs(cost_sellers)
+
+
+    cost_total = cost_buyers + cost_sellers
+
+    return cost_total

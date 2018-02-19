@@ -6,10 +6,15 @@ sys.path.append('/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/')
 mode = 'normal'
 # mode = 'batchrunner'
 
-
-#model = 'pso'
+""" EnergyBazaar """
 #model = 'sync'
-model = 'async'
+#model = 'async'
+
+""" PSO """
+#model = 'pso'
+#model = 'pso_hierarchical'
+model = 'pso_not_hierarchical'
+
 
 agents_low = 5
 agents_high = 20
@@ -27,6 +32,10 @@ if model == 'async':
     from source.microgrid_async import *
 if model == 'pso':
     from source.PSO_model import *
+if model == 'pso_hierarchical':
+    from source.microgrid_PSO_hierarchical import *
+if model == 'pso_not_hierarchical':
+    from source.microgrid_PSO_no_Hierarchy import *
 
 from blockchain.smartcontract import *
 from source.plots import *
@@ -150,14 +159,21 @@ def run_mg(sim_steps, N, comm_reach, lambda_set):
 
 
 
-    load, production, load_series_total, production_series_total = plot_input_data(big_data_file,sim_steps, N)
+    # load, production, load_series_total, production_series_total = plot_input_data(big_data_file,sim_steps, N)
 
     """Model creation"""
     if model == 'sync':
-        model_run = MicroGrid_sync(big_data_file, starting_point, N, lambda_set)        # create microgrid model with N agents
+        model_run = MicroGrid_sync(big_data_file, starting_point, N, lambda_set)
+
+    if model == 'pso_hierarchical':
+        model_run = MicroGrid_PSO(big_data_file, starting_point, N, lambda_set)
+
+    if model == 'pso_not_hierarchical':
+        model_run = MicroGrid_PSO_non_Hierarchical(big_data_file, starting_point, N, lambda_set)
 
     if model == 'async':
-        model_run = MicroGrid_async(big_data_file, starting_point, N, comm_reach, lambda_set)        # create microgrid model with N agents
+        model_run = MicroGrid_async(big_data_file, starting_point, N, comm_reach, lambda_set)
+
 
 
     """Microgrid ABM makes steps over the duration of the simulation, data collection"""
@@ -245,8 +261,7 @@ def run_mg(sim_steps, N, comm_reach, lambda_set):
         E_surplus_over_time
         E_total_supply_over_time[i] = E_total_supply
         E_demand_over_time[i] = E_demand
-        # print(utilities_sellers, 'utilities_sellers')
-        # print(utilities_sellers_over_time, 'utilities_sellers_over_time')
+
         num_global_iteration_over_time[i] = num_global_iteration
         num_buyer_iteration_over_time[i] = num_buyer_iteration
         num_seller_iteration_over_time[i] = num_seller_iteration
@@ -429,7 +444,7 @@ list_mean_iterations_batch = np.zeros((len(range(agents_low, agents_high)), 3))
 
 """ Run normal"""
 if mode == 'normal':
-    N = 14
+    N = 8
     comm_radius = 3
     if model == 'sync':
         comm_radius = None
@@ -439,6 +454,12 @@ if mode == 'normal':
     elif model == 'pso':
         comm_reach = None
         run_mg_pso(sim_steps, N, comm_reach, lambda_set)
+    elif model == 'pso_hierarchical':
+        comm_reach = None
+        run_mg(sim_steps, N, comm_reach, lambda_set)
+    elif model == 'pso_not_hierarchical':
+        comm_reach = None
+        run_mg(sim_steps, N, comm_reach, lambda_set)
 
 """ Run in batchrunner """
 if mode == 'batchrunner':
@@ -457,11 +478,12 @@ if mode == 'batchrunner':
         elif model == 'pso':
             comm_reach = None
             run_mg_pso(sim_steps, N, comm_reach, lambda_set)
+        elif model == 'pso_hierarchical':
+            comm_reach = None
+            run_mg(sim_steps, N, comm_reach, lambda_set)
 
         list_mean_iterations_batch[num_agents - agents_low][:] = global_mean, buyer_mean, seller_mean
         np.save('/Users/dirkvandenbiggelaar/Desktop/python_plots/list_mean_iterations_batch', list_mean_iterations_batch)
 
-print(list_mean_iterations_batch)
 
-list_mean_iterations_batch_loaded = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/list_mean_iterations_batch.npy')
 

@@ -1,8 +1,6 @@
 """ Particle swarm optimization """
 import numpy as np
 from pyswarm import pso
-import pyswarms as ps
-from pyswarms.utils.functions import single_obj as fx
 from source.function_file import *
 from mesa import Agent, Model
 
@@ -125,8 +123,8 @@ class MicroGrid_PSO(Model):
             alpha_vector_pso = args[0]
             beta_vector_pso = args[1]
             gamma_vector_pso = args[2]
-
-            return sum(alpha_vector_pso) + np.dot(beta_vector_pso, x) + np.dot(gamma_vector_pso, x**2)
+            cost = sum(alpha_vector_pso) + np.dot(beta_vector_pso, x) + np.dot(gamma_vector_pso, x**2)
+            return cost
 
 
         def Buyer_objectivefunction(x, *args_buyer):
@@ -143,16 +141,21 @@ class MicroGrid_PSO(Model):
 
             return  (abs(E_i_opt - E_j_opt * c_i / (c_l_opt + c_i))) ** lambda11 + (c_i * E_j_opt * (c_i / (c_l_opt + c_i))) ** lambda12
 
-        def Seller_objectivefunction(x, *args_seller):
+        def Seller_objectivefunction(w, *args_seller):
             """ Costfunction """
             """ agents specific weights"""
-            alpha_vector_pso = args[0]
-            beta_vector_pso = args[1]
-            gamma_vector_pso = args[2]
+            R_p_opt = args_seller[0]
+            E_j_p_opt = args_seller[1]
+            E_p_opt = args_seller[2]
+            R_d_opt = args_seller[3]
+            E_j_opt = args_seller[4]
+            E_d_opt = args_seller[5]
+
+            lambda21 = args_seller[6]
+            lambda22 = args_seller[7]
 
             return - ( (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
                        + (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22 )
-
 
 
 
