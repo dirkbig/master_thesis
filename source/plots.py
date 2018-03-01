@@ -8,7 +8,6 @@ def close_all():
 
 def plot_E_total_surplus_prediction_per_step(E_total_surplus_prediction_per_step, N):
     # plt.plot(E_total_surplus_prediction_per_step/N)
-    # plt.show()
     return
 
 
@@ -16,7 +15,6 @@ def plot_prediction(means_surplus, means_load):
     # plt.title('mean of surplus and load')
     # plt.plot(means_surplus)
     # plt.plot(means_load)
-    # plt.show
     return
 
 
@@ -264,46 +262,64 @@ def plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, s
 
     # ax2 = fig_utilities.add.subplot(212)
 
-def plot_avg_soc_preferred(soc_preferred_list_over_time, avg_soc_preferred_over_time, soc_actual_over_time, N, steps):
+def plot_avg_soc_preferred(actual_batteries_over_time, soc_preferred_list_over_time, avg_soc_preferred_over_time, soc_actual_over_time, deficit_total_over_time, deficit_total_progress_over_time, production_series_total, N, steps):
+
+
+
+    fig_soc_preferred = plt.figure(figsize=(10,5))
+    ax1 = fig_soc_preferred.add_subplot(311)
+    ax2 = fig_soc_preferred.add_subplot(312)
+    ax3 = fig_soc_preferred.add_subplot(313)
+
 
     avg_soc_actual_over_time = np.zeros(steps)
     for agent in range(N):
         for i in range(steps):
             avg_soc_actual_over_time[i] += soc_actual_over_time[agent][i]/N
 
-    fig_soc_preferred = plt.figure(figsize=(10,5))
-    ax1 = fig_soc_preferred.add_subplot(211)
-
     ax1.plot(avg_soc_preferred_over_time, label='average soc_preferred over time')
     ax1.plot(avg_soc_actual_over_time, label='average soc_actual over time')
+    ax1.plot(deficit_total_over_time, label='total deficit on each step')
+    ax1.plot(production_series_total, alpha=0.5, label='total deficit progress')
+
+    for i in range(N):
+        ax2.plot(soc_preferred_list_over_time[i], label='soc_preferred for agent' + str(i))
+
+    for i in range(N):
+        ax3.plot(actual_batteries_over_time[i], label='soc_actual for agent' + str(i))
+
     ax1.legend()
 
-    ax2 = fig_soc_preferred.add_subplot(212)
-    for i in range(N):
-        ax2.plot(soc_preferred_list_over_time[i])
+    ax1.set_title('averages')
+    ax2.set_title('preferred soc for each agent')
+    ax3.set_title('actual soc for each agent')
+
 
     fig_soc_preferred.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_soc_preferred.pdf', bbox_inches='tight')  # save the figure to file
 
-def plot_supply_demand(surplus_in_grid_over_time, demand_in_grid_over_time, N):
+def plot_supply_demand(E_total_supply, E_actual_supplied_total, demand_in_grid_over_time, N):
 
-    fig_supply_demand = plt.figure(figsize=(10,10))
-    ax1 = fig_supply_demand.add_subplot(211)
-    ax2 = fig_supply_demand.add_subplot(212)
+    fig_supply_demand = plt.figure(figsize=(5,5))
+    ax1 = fig_supply_demand.add_subplot(111)
 
-    total_surplus = sum(surplus_in_grid_over_time)
-    total_demand = sum(demand_in_grid_over_time)
+    ax1.plot(E_total_supply, label='Total available supply')
+    ax1.plot(E_actual_supplied_total, label='Total actual supply')
+    ax1.plot(demand_in_grid_over_time, label='Total demand')
 
-    for agent in range(N):
-        ax1.plot(surplus_in_grid_over_time, label='surplus of agent ' + str(int(agent)))
-        ax2.plot(demand_in_grid_over_time, label='demand of agent ' + str(int(agent)))
-
-    ax1.plot(total_surplus, label='total surplus')
-    ax2.plot(total_demand, label='total demand')
     ax1.legend()
-    ax2.legend()
-
     plt.suptitle('Supply vs Demand')
+
+
+
     fig_supply_demand.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_supply_demand.pdf', bbox_inches='tight')  # save the figure to file
+
+
+# def soc_households():
+#
+#     soc_households = plt.figure(figsize=(10,10))
+#     avg = soc_households.add_subplot(211)
+#     agents = soc_households.add_subplot(212)
+
 
 
 def plot_input_data(big_data_file, sim_steps,N):
@@ -375,7 +391,6 @@ def plot_iterations(global_iteration_over_time, buyer_iteration_over_time, selle
     plt.plot(global_iteration_over_time, label='global-level iterations')
     plt.plot(buyer_iteration_over_time, label='buyers-level iterations')
     plt.plot(seller_iteration_over_time, label='sellers-level iterations')
-    plt.show
 
     fig_plot_iterations.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_iterations.pdf', bbox_inches='tight')  # save the figure to file
 
@@ -388,10 +403,48 @@ def plot_profits(profit_list_over_time, profit_list_summed_over_time, N):
     #     plt.plot(profit_list_over_time[agent][:], label='profits')
 
     plt.plot(profit_list_summed_over_time)
-    plt.show
 
 
     fig_plot_profits.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_profits.pdf', bbox_inches='tight')  # save the figure to file
+
+def plot_costs_over_time(E_demand_list_over_time, E_allocated_list_over_time, payment_list, E_total_supply_list_over_time, E_actual_supplied_list, revenue_list, N, steps):
+    """ Costs over time """
+
+    """ Zooms in on 1 agent over time"""
+    fig_costs_over_time_agent = plt.figure(figsize=(20,5))
+    sales = fig_costs_over_time_agent.add_subplot(311)
+    buys = fig_costs_over_time_agent.add_subplot(312)
+    profit = fig_costs_over_time_agent.add_subplot(313)
+
+    agent = [3]
+
+    for i in range(len(agent)):
+        buys.plot(E_demand_list_over_time[agent[i]][:],label='demand agent'  + str(agent[i]))
+        buys.plot(E_allocated_list_over_time[agent[i]][:],label='allocated to agent' + str(agent[i]))
+
+        sales.plot(E_total_supply_list_over_time[agent[i]][:],label='supply from agent' + str(agent[i]))
+        sales.plot(E_actual_supplied_list[agent[i]][:],label='actually supplied from agent' + str(agent[i]))
+
+        buys.plot(payment_list[agent[i]][:], label='payments from agent' + str(agent[i]))
+        sales.plot(revenue_list[agent[i]][:], label='revenue to agent' + str(agent[i]))
+
+    balance_over_time = np.zeros(steps)
+    for i in range(len(agent)):
+        balance = 0
+        for step in range(steps):
+            balance += revenue_list[agent[i]][step] - payment_list[agent[i]][step]
+            balance_over_time[step] = balance
+
+    profit.plot(balance_over_time, label = 'balance per agent')
+
+    buys.legend()
+    sales.legend()
+
+    buys.set_title('buys over time per agent')
+    sales.set_title('sales over time per agent')
+
+    profit.set_title('profit over time per agent')
+    fig_costs_over_time_agent.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_costs_over_time_agent.pdf', bbox_inches='tight')  # save the figure to file
 
 
 def plot_PSO(results_over_time, P_supply_list_over_time, P_demand_list_over_time, gen_output_list_over_time, load_demand_list_over_time, avg_battery_soc_list_over_time, N, sim_steps):
@@ -417,8 +470,6 @@ def plot_PSO(results_over_time, P_supply_list_over_time, P_demand_list_over_time
     ax2.plot(avg_battery_soc_list_over_time, label='mean battery over time')
 
     plt.legend()
-
-    plt.show()
 
     fig_plot_PSO_dispatch.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_PSO_dispatch.pdf', bbox_inches='tight')  # save the figure to file
 

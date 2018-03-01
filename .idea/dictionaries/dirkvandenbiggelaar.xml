@@ -2,6 +2,7 @@
   <dictionary name="dirkvandenbiggelaar">
     <words>
       <w>addr</w>
+      <w>batchdata</w>
       <w>batchrunner</w>
       <w>batt</w>
       <w>batterycapacity</w>
@@ -16,8 +17,10 @@
       <w>optimzation</w>
       <w>optimziation</w>
       <w>promiser</w>
+      <w>prosumers</w>
       <w>pvgeneration</w>
       <w>slsqp</w>
+      <w>solarpanel</w>
       <w>splitted</w>
       <w>timestep</w>
       <w>uint</w>

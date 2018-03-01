@@ -66,7 +66,7 @@ def compile_smart_contract():
             return totalSupply;
 
         }
-                
+        
         function giveStartingMoney() external {
             // add require 1-time-give-away check
             balanceOf[msg.sender] = startCapital; 
@@ -190,9 +190,6 @@ def deploy_SC(contract_interface, w3, creator_address):
     return w3, contract_instance, tx_receipt, contract_address, event_CreatedEnergy, event_InitialisedContract
 
 def setter_initialise_tokens(w3, contract_instance, deployment_tx_hash, creator_address, event_InitialisedContract):
-
-
-
 
     if contract_kind == 'classic':
         contract_instance.transact({'from': creator_address, 'to': creator_address}).MyToken()

@@ -390,6 +390,10 @@ class MicroGrid_PSO(Model):
         self.lb_seller = 0
         self.ub_seller = 1
 
+        self.deficit_total = 0
+        self.payed_list = np.zeros(N)
+        self.received_list = np.zeros(N)
+
     def step(self, N, lambda_set):
         """Environment proceeds a step after all agents took a step"""
         print("Step =", self.steps)
@@ -734,41 +738,50 @@ class MicroGrid_PSO(Model):
                 pass
 
 
-
-
+        self.deficit_total = 0
+        total_payment = 0
         """settle all deals"""
         for agent in self.agents[:]:
+            agent.payment = 0
             if agent.classification == 'buyer':
+                """ buyers payings """
                 agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
                 self.supply_deals[agent.id] = agent.E_i_allocation
                 agent.soc_influx = agent.E_i_allocation - agent.E_i_demand
-                if agent.soc_actual + agent.soc_influx < 0.01:
-                    # print("agent %d battery depleted" % agent.id)
+                if agent.soc_actual + agent.soc_influx < 0:
+                    """ battery is depleting """
                     agent.deficit = agent.soc_actual + agent.soc_influx
-                    agent.soc_influx = agent.E_i_demand - agent.deficit
-                if agent.soc_actual + agent.soc_influx > agent.batt_available:
+                    agent.soc_influx = agent.E_i_demand + agent.deficit
+                    self.deficit_total += agent.deficit
+                if agent.soc_actual + agent.soc_influx > agent.battery_capacity_n:
+                    """ battery is overflowing """
                     agent.soc_influx = agent.batt_available - agent.soc_actual
                     agent.batt_overflow = agent.soc_actual + agent.soc_influx - agent.batt_available
-                    # print("agent %d battery overflowing" % agent.id)
                 agent.soc_actual += agent.soc_influx
                 agent.payment = agent.E_i_allocation * agent.c_i_bidding_price
-            elif agent.classification == 'seller':
+                total_payment += agent.payment
+            self.actual_batteries[agent.id] = agent.soc_actual
+
+        for agent in self.agents[:]:
+            agent.revenue = 0
+            if agent.classification == 'seller':
+                """ sellers earnings """
+                if self.steps == 75:
+                    print('hello')
                 agent.soc_influx = agent.E_j_surplus * (1 - agent.w_j_storage_factor) + agent.E_j_returned_supply
-                agent.revenue = agent.E_j_actual_supplied * agent.w_j_storage_factor * self.c_nominal
+                agent.revenue = agent.E_j_supply/self.E_total_supply * total_payment # E_j_actual_supplied
                 agent.soc_actual += agent.soc_influx
             self.actual_batteries[agent.id] = agent.soc_actual
-        if np.any(self.actual_batteries) < 0:
-            exit("negative battery soc, physiscs are broken")
+        if np.any(self.actual_batteries) < 0 or np.any(self.actual_batteries) > agent.battery_capacity_n:
+            exit("negative battery soc, physics are broken")
+
         self.battery_soc_total = sum(self.actual_batteries)
 
-        total_payed = 0
-        total_recieved = 0
+        self.payed_list = np.zeros(N)
+        self.received_list = np.zeros(N)
         for agent in self.agents[:]:
-            total_payed += agent.payment
-            total_recieved += agent.revenue
-        print('total_payed',total_payed)
-        print('total_recieved' ,total_recieved)
-        print('total_recieved - total_payed', total_recieved - total_payed)
+            self.payed_list[agent.id] = agent.payment
+            self.received_list[agent.id] = agent.revenue
 
         """ Pull data out of agents """
         total_soc_pref = 0

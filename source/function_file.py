@@ -111,7 +111,7 @@ def calc_R_j_revenue(R_total, E_j_supply, w_j_storage_factor, E_total_supply):
     return R_j
 
 
-def get_preferred_soc(soc_preferred, battery_capacity, E_prediction_series, horizon_length):
+def get_preferred_soc(soc_preferred, battery_capacity, E_prediction_series, soc_actual, horizon_length):
     """determines the preferred state of charge for given agent/battery """
 
     future_availability = 0
@@ -137,6 +137,10 @@ def get_preferred_soc(soc_preferred, battery_capacity, E_prediction_series, hori
     weight_preferred_soc = 0.5**(average_predicted_E_surplus/E_prediction_current)**0.3
     soc_preferred = battery_capacity * weight_preferred_soc
 
+    """ load shedding """
+    if soc_actual > 0.7 * battery_capacity:
+        soc_preferred = 0.2 * battery_capacity
+
     return soc_preferred
 
 """"""
@@ -151,6 +155,7 @@ def allocation_i(E_total_supply, c_i_bidding_price, c_bidding_prices_others):
     if c_i_bidding_price <= 0 or (c_bidding_prices_others + c_i_bidding_price) <= 0:
         E_i_allocation = 0
         return E_i_allocation
+
     try:
         E_i_allocation = E_total_supply * (c_i_bidding_price / (c_bidding_prices_others + c_i_bidding_price))
     except RuntimeWarning:
@@ -447,6 +452,67 @@ def utility_j_validation(E_j_opt, gamma_j_opt, R_j_opt, w_j_val):
 
     return sol_j_validation, sol_j_validation.x[4]
 
+
+
+
+def prediction_base_function(R_total, big_data_file, horizon, prediction_range, agents, N, steps):
+    """ Prediction base function"""
+
+    """ surplus_prediction/demand_per_step_prediction gives predicted surplus/demand; per step, per agent"""
+    surplus_prediction = np.zeros((prediction_range, len(agents)))
+    demand_per_step_prediction = np.zeros((prediction_range, len(agents)))
+
+    """ index prediction data, now using the current data set... AI should be plugged in here eventually"""
+    for i in range(prediction_range):
+        for agent in agents[:]:
+            """ now using actual data (big_data_file) but should be substituted with prediction data"""
+            energy_per_step_per_agent_prediction = big_data_file[steps + i][agent.id][0] - \
+                                                   big_data_file[steps + i][agent.id][
+                                                       1]  # [0] = load, corresponds with demand  - [1] = production
+            """ results in either demand_per_step_prediction or surplus_prediction for each agent"""
+            if energy_per_step_per_agent_prediction >= 0:
+                """ series of coming demands"""
+                demand_per_step_prediction[i][agent.id] = abs(energy_per_step_per_agent_prediction)
+            if energy_per_step_per_agent_prediction < 0:
+                """ series of coming surpluses"""
+                surplus_prediction[i][agent.id] = abs(energy_per_step_per_agent_prediction)
+
+    """ for now this is the prediction """
+    E_total_surplus_prediction_per_step = np.zeros(
+        prediction_range)  # must adapt in size for every step (shrinking as time progresses))
+    E_total_demand_prediction = np.zeros(prediction_range)
+
+    for i in range(prediction_range):
+        E_total_surplus_prediction_per_step[i] = calc_E_total_prediction(surplus_prediction[i][:], horizon, N,
+                                                                              steps,
+                                                                              prediction_range)
+    """ A prediction"""
+    R_prediction, alpha, beta = calc_R_prediction(R_total, big_data_file, horizon, agents,
+                                                       steps)
+
+    """ E_surplus prediction over horizon in total = a sum of agents predictions"""
+    E_surplus_prediction_over_horizon = 0
+    for agent in agents[:]:
+        E_surplus_prediction_over_horizon += agent.E_prediction_agent
+
+    """ conversion to usable E_supply_prediction (using w_prediction_avg does nothing yet)
+        Make use of agents knowledge that is shared among each others: 
+        total predicted energy = sum(individual predictions)"""
+    w_prediction_avg = 0
+    for agent in agents[:]:
+        w_prediction_avg += agent.w_prediction / N
+
+    E_supply_prediction = E_surplus_prediction_over_horizon * w_prediction_avg
+
+    """ analysis of prediction data """
+    means_surplus = []
+    means_load = []
+
+    for i in range(prediction_range):
+        means_surplus.append(np.mean(surplus_prediction[i][:]))
+        means_load.append(np.mean(demand_per_step_prediction[i][:]))
+
+    return R_prediction, E_supply_prediction
 
 def isNaN(num):
     return num != num
