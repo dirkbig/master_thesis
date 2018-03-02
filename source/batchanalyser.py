@@ -3,12 +3,9 @@ from source.plots_thesis_grade import *
 container = []
 
 batch_id = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata_test/batch_id_14_16_12__01_03_2018.npy')
-agents_low, agents_high = batch_id
-# agents_low, agents_high, length_sim = batch_id
-# num_steps = length_sim
-
+agents_low, agents_high, length_sim = batch_id
+num_steps = length_sim
 range_agents = agents_high - agents_low
-num_steps = 144
 num_batches = len(range(agents_low, agents_high))
 comm_reach = None
 
@@ -60,9 +57,14 @@ num_seller_iteration_over_time_batch = np.zeros((num_batches, num_steps))
 deficit_total_over_time_batch = np.zeros((num_batches,num_steps))
 
 
+
 c_nominal_over_time_batch = np.zeros((num_batches, num_steps))
 w_nominal_over_time_batch = np.zeros((num_batches, num_steps))
 E_total_supply_list_over_time_batch = []
+
+actual_batteries_list_over_time_batch = []
+socs_preferred_over_time_batch = []
+E_actual_supplied_total_batch = []
 
 num_total_rows = 0
 for batch in range(agents_high - agents_low):
@@ -75,7 +77,20 @@ for batch in range(agents_high - agents_low):
 
 
     E_total_supply_list_over_time = container[batch]['E_total_supply_list_over_time']
-    E_total_supply_list_over_time_batch = np.append(E_total_supply_list_over_time_batch, [E_total_supply_list_over_time])
+    E_total_supply_list_over_time_batch = np.append(E_total_supply_list_over_time_batch,
+                                                    [E_total_supply_list_over_time])
+
+    actual_batteries_list_over_time = container[batch]['actual_batteries_over_time']
+    actual_batteries_list_over_time_batch = np.append(actual_batteries_list_over_time_batch,
+                                                    [actual_batteries_list_over_time])
+
+    socs_preferred_over_time = container[batch]['socs_preferred_over_time']
+    socs_preferred_over_time_batch = np.append(socs_preferred_over_time_batch,
+                                                    [socs_preferred_over_time])
+
+    E_actual_supplied_total = container[batch]['E_actual_supplied_total']
+    E_actual_supplied_total_batch = np.append(E_actual_supplied_total_batch,
+                                                    [E_actual_supplied_total])
 
     # num_buyer_iteration_over_time_batch[batch] = container[batch]['num_buyer_iteration_over_time']
     # num_seller_iteration_over_time_batch[batch] = container[batch]['num_seller_iteration_over_time']
@@ -119,7 +134,9 @@ for batch in range(agents_high - agents_low):
         # num_seller_iteration_over_time_batch[batch][step]  = num_seller_iteration_over_time[step]
 
 E_total_supply_list_over_time_batch = np.reshape(E_total_supply_list_over_time_batch, (num_total_rows, num_steps))
-print(np.shape(E_total_supply_list_over_time_batch))
+actual_batteries_list_over_time_batch = np.reshape(actual_batteries_list_over_time_batch, (num_total_rows, num_steps))
+
+print(np.shape(actual_batteries_list_over_time_batch))
 
 
 E_total_supply_list_over_time_mean = np.zeros((num_batches,num_steps))
@@ -140,6 +157,7 @@ for batch in range(num_batches):
 
 
 list_mean_iterations_batch = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata_test/list_mean_iterations_batch.npy')
-thesis_supply_demand_batch_plot(E_total_supply_list_over_time_mean, w_nominal_over_time_batch, num_batches)
+# thesis_supply_demand_batch_plot(E_total_supply_list_over_time_mean, w_nominal_over_time_batch, num_batches)
 # thesis_iteration_plot(list_mean_iterations_batch, num_batches, range_agents, agents_low, agents_high)
 # thesis_control_values_plot(c_nominal_over_time_batch, w_nominal_over_time_batch, num_batches)
+thesis_soc_batch_plot(actual_batteries_list_over_time_batch, socs_preferred_over_time_batch, E_actual_supplied_total_batch, num_batches, agents_low, num_steps)

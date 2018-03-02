@@ -138,8 +138,11 @@ def get_preferred_soc(soc_preferred, battery_capacity, E_prediction_series, soc_
     soc_preferred = battery_capacity * weight_preferred_soc
 
     """ load shedding """
-    if soc_actual > 0.7 * battery_capacity:
+    if soc_actual > 0.8 * battery_capacity:
         soc_preferred = 0.2 * battery_capacity
+
+    if soc_actual < 0.2 * battery_capacity:
+        soc_preferred = 0.8 * battery_capacity
 
     return soc_preferred
 

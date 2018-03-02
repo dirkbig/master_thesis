@@ -6,8 +6,8 @@ sys.path.append('/Users/dirkvandenbiggelaar/Desktop/Thesis_workspace/')
 """"""""""""""""""""""""
 """ MODE SELECTION   """
 """"""""""""""""""""""""
-# mode = 'normal'
-mode = 'batchrunner'
+mode = 'normal'
+# mode = 'batchrunner'
 
 """ EnergyBazaar """
 model = 'sync'
@@ -19,26 +19,39 @@ model = 'sync'
 #model = 'pso_not_hierarchical'
 
 
-
+plots = 'on'
+# plots = 'off'
 
 """"""""""""""""""""""""
 """ INIT             """
 """"""""""""""""""""""""
 
-penetration_prosumers = 0.6
-
-""" init for normal mode """
-normal_batchrunner_N = 20
-normal_batchrunner_comm_radius = 3
+penetration_prosumers = 0.5
 lambda11 = 2
 lambda12 = 1
 lambda21 = 2
 lambda22 = 2
 lambda_set = [lambda11, lambda12, lambda21, lambda22]
 
+range_parameter_sweep = 10
+horizon_low = 70
+horizon_high = 1440
+batt_low = 0
+batt_high = 10
+
+parameter_sweep_dict = {'max_horizon': np.arange(horizon_low, horizon_high, range_parameter_sweep),
+                        'battery_capacity': np.arange(batt_low, batt_high, range_parameter_sweep)}
+
+
+
+""" init for normal mode """
+normal_batchrunner_N = 20
+normal_batchrunner_comm_radius = 3
+
 """ init for batchrunner mode """
-agents_low = 10
+agents_low = 5
 agents_high = 44
+
 
 """"""""""""""""""""""""
 """ START            """
@@ -61,9 +74,15 @@ import os
 
 list_mean_iterations_batch = np.zeros((len(range(agents_low, agents_high)), 3))
 
-def run_mg(sim_steps, N, comm_reach, lambda_set):
+def run_mg(sim_steps, N, args):
 
     np.seterr(all='warn')
+    if mode == 'sync':
+        [lambda_set, parameter_sweep_dict] = args
+
+
+    if mode == 'async':
+        [comm_reach, lambda_set, parameter_sweep_dict] = args
 
     if stopping_point > total_steps:
         sys.exit("stopping point should be within bounds of the day")
@@ -174,34 +193,49 @@ def run_mg(sim_steps, N, comm_reach, lambda_set):
         agent_char_prod[i] = random.uniform(1, 2)
 
     """ Number of pure producers and pure consumers """
-    pure_producers = 0.2  # percent
+    pure_producers = 0  # percent
     pure_consumers = 1 - penetration_prosumers  # percent
     number_pure_producers = int(N * pure_producers)
     number_pure_consumers = int(N * pure_consumers)
+    print('number of prosumers:', N - number_pure_consumers)
     for i in range(number_pure_producers):
         agent_char_load[i] = 0
 
     for i in range(number_pure_consumers):
         agent_char_prod[i + number_pure_producers] = 0
 
+    total_production = 0
+    total_load = 0
     for step in range(sim_steps):
         for agent in range(N):
-            big_data_file[step][agent][0] = load_file_agents_time[agent][step]**0.5 * sine_wave_consumption_series[step]*agent_char_load[agent] / 3.3
-            big_data_file[step][agent][1] = production_file_agents_time[agent][step] * agent_char_prod[agent]
+            total_load += load_file_agents_time[agent][step]**0.5 * sine_wave_consumption_series[step]*agent_char_load[agent]
+            total_production += production_file_agents_time[agent][step] * agent_char_prod[agent]
+
+
+    print('total_production', total_production)
+    print('total_load', total_load)
+
+    factor =  total_load / total_production
+    print(factor)
+    number_of_prosumers = np.count_nonzero(agent_char_prod)
+    avg_production_week = total_production / number_of_prosumers
+    avg_production_year = avg_production_week * 52
+    avg_consumption_year = total_load/N *52
+
+    print('average production of 1 prosumer yearly:', avg_production_year)
+    print('average consumption of 1 consumer yearly:', avg_consumption_year)
+
+    for step in range(sim_steps):
+        for agent in range(N):
+            big_data_file[step][agent][0] = load_file_agents_time[agent][step]**0.5 * sine_wave_consumption_series[step]*agent_char_load[agent]
+            big_data_file[step][agent][1] = production_file_agents_time[agent][step] * agent_char_prod[agent] * factor
 
 
     load, production, load_series_total, production_series_total = plot_input_data(big_data_file,sim_steps, N)
 
 
-    number_of_prosumers = np.count_nonzero(agent_char_prod)
-    avg_production_week = production / number_of_prosumers
-    avg_production_year = avg_production_week * 52
-    avg_consumption_year = load/N *52
-    print('total load this week:', load)
-    print('total production this week:', production)
-    print('average production yearly:', avg_production_year)
-    print('average consumption yearly:', avg_consumption_year)
-
+    print('corrected total_production', production)
+    print('corrected total_load', load)
     """Model creation"""
     if model == 'sync':
         model_run = MicroGrid_sync(big_data_file, starting_point, N, lambda_set)
@@ -359,22 +393,26 @@ def run_mg(sim_steps, N, comm_reach, lambda_set):
     seller_mean = np.mean(num_seller_iteration_over_time_mod)
 
 
-    close_all()
-    """DATA PROCESSING, oftewel plots"""
-    # plot_profits(profit_list_over_time, profit_list_summed_over_time, N)
-    # plot_iterations(num_global_iteration_over_time, num_buyer_iteration_over_time,num_seller_iteration_over_time)
 
-    # plot_costs_over_time(E_demand_list_over_time, E_allocated_list_over_time, payment_list_over_time, E_total_supply_list_over_time, E_actual_supplied_list_over_time, revenue_list_over_time, N, sim_steps)
-    # plot_supply_demand(E_total_supply_over_time, E_actual_supplied_total, E_demand_over_time, N)
-    # plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_total_supply_over_time, R_real_over_time, c_nominal_over_time)
-    # plot_results(mean_sharing_factors, supplied_over_time_list, E_demand_over_time, c_nominal_over_time, number_of_buyers_over_time, number_of_sellers_over_time)
-    # plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_time, E_demand_over_time, N)
-    # plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, sim_steps)
-    # plot_supplied_vs_surplus_total(surplus_on_step_over_time, E_total_supply_over_time, E_demand_over_time)
-    # plot_input_data(big_data_file, sim_steps, N)
-    # plot_avg_soc_preferred(actual_batteries_over_time, socs_preferred_over_time, avg_soc_preferred_over_time, actual_batteries_over_time, deficit_total_over_time, deficit_total_progress_over_time, production_series_total, N, sim_steps)
-    # plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_demand_list_over_time, E_surplus_over_time, E_total_supply_over_time, c_nominal_over_time, N, sim_steps)
-    # # plot_utility_seller(utilities_sellers_over_time, w_factors_over_time, E_demand_list_over_time, w_nominal_over_time, N, sim_steps)
+    """DATA PROCESSING, oftewel plots"""
+    if plots == 'on':
+        close_all()
+
+        plot_profits(profit_list_over_time, profit_list_summed_over_time, N)
+        plot_iterations(num_global_iteration_over_time, num_buyer_iteration_over_time,num_seller_iteration_over_time)
+
+        plot_costs_over_time(E_demand_list_over_time, E_allocated_list_over_time, payment_list_over_time, E_total_supply_list_over_time, E_actual_supplied_list_over_time, revenue_list_over_time, N, sim_steps)
+        plot_supply_demand(E_total_supply_over_time, E_actual_supplied_total, E_demand_over_time, N)
+        plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_total_supply_over_time, R_real_over_time, c_nominal_over_time)
+        plot_results(mean_sharing_factors, supplied_over_time_list, E_demand_over_time, c_nominal_over_time, number_of_buyers_over_time, number_of_sellers_over_time)
+        plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_time, E_demand_over_time, N)
+        plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, sim_steps)
+        plot_supplied_vs_surplus_total(surplus_on_step_over_time, E_total_supply_over_time, E_demand_over_time)
+        plot_input_data(big_data_file, sim_steps, N)
+        plot_avg_soc_preferred(actual_batteries_over_time, socs_preferred_over_time, avg_soc_preferred_over_time, actual_batteries_over_time, deficit_total_over_time, deficit_total_progress_over_time, production_series_total, N, sim_steps)
+        plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_demand_list_over_time, E_surplus_over_time, E_total_supply_over_time, c_nominal_over_time, N, sim_steps)
+
+
     length_sim  = len(supplied_over_time_list)
     np.savez('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata/batch_data_Nis' + str(N) + '_commreachis' + str(comm_reach) + '.npz', profit_list_summed_over_time, number_of_buyers_over_time, number_of_sellers_over_time,
              supplied_over_time_list, E_demand_over_time,
@@ -393,7 +431,7 @@ def run_mg(sim_steps, N, comm_reach, lambda_set):
 
     return global_mean, buyer_mean, seller_mean, length_sim
 
-def run_mg_pso(sim_steps, N, comm_reach, lambda_set):
+def run_mg_pso(sim_steps, N, args):
 
     np.seterr(all='warn')
 
@@ -562,42 +600,46 @@ def run_mg_pso(sim_steps, N, comm_reach, lambda_set):
     """ PSO results"""
 
 """ Run normal"""
+args = [lambda_set, parameter_sweep_dict]
 if mode == 'normal':
     N = normal_batchrunner_N
     comm_radius = normal_batchrunner_comm_radius
     if model == 'sync':
         comm_radius = None
-        run_mg(sim_steps, N, comm_radius, lambda_set)
+        run_mg(sim_steps, N, args)
     elif model == 'async':
-        run_mg(sim_steps, N, comm_radius, lambda_set)
+        args = [comm_reach, lambda_set, parameter_sweep_dict]
+        run_mg(sim_steps, N, args)
     elif model == 'pso':
         comm_reach = None
-        run_mg_pso(sim_steps, N, comm_reach, lambda_set)
+        run_mg_pso(sim_steps, N, args)
     elif model == 'pso_hierarchical':
         comm_reach = None
-        run_mg(sim_steps, N, comm_reach, lambda_set)
+        run_mg(sim_steps, N, args)
     elif model == 'pso_not_hierarchical':
         comm_reach = None
-        run_mg(sim_steps, N, comm_reach, lambda_set)
+        run_mg(sim_steps, N, args)
 
 """ Run in batchrunner """
+args = [lambda_set, parameter_sweep_dict]
 if mode == 'batchrunner':
     for num_agents in range(agents_low, agents_high):
         comm_radius_low = int((num_agents - 1) / 4)
         comm_radius_high = int((num_agents - 1) / 2)
         if model == 'sync':
             radius = None
-            global_mean, buyer_mean, seller_mean, length_sim = run_mg(sim_steps, num_agents, radius, lambda_set)
+            global_mean, buyer_mean, seller_mean, length_sim = run_mg(sim_steps, num_agents, args)
         elif model == 'async':
             """ adaptive communication topology (depending on size of grid)"""
-            for radius in range(comm_radius_low, comm_radius_high):
-                global_mean, buyer_mean, seller_mean = run_mg(sim_steps, num_agents, radius, lambda_set)
+            for comm_reach in range(comm_radius_low, comm_radius_high):
+                args = [comm_reach, lambda_set, parameter_sweep_dict]
+                global_mean, buyer_mean, seller_mean = run_mg(sim_steps, num_agents, args)
         elif model == 'pso':
             comm_reach = None
-            run_mg_pso(sim_steps, num_agents, comm_reach, lambda_set)
+            run_mg_pso(sim_steps, num_agents, args)
         elif model == 'pso_hierarchical':
             comm_reach = None
-            run_mg(sim_steps, num_agents, comm_reach, lambda_set)
+            run_mg(sim_steps, num_agents, args)
 
         list_mean_iterations_batch[num_agents - agents_low][:] = [global_mean, buyer_mean, seller_mean]
 

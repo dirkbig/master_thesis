@@ -271,6 +271,7 @@ def plot_avg_soc_preferred(actual_batteries_over_time, soc_preferred_list_over_t
     ax2 = fig_soc_preferred.add_subplot(312)
     ax3 = fig_soc_preferred.add_subplot(313)
 
+    avg_deficit_total_over_time = deficit_total_over_time / N
 
     avg_soc_actual_over_time = np.zeros(steps)
     for agent in range(N):
@@ -279,8 +280,16 @@ def plot_avg_soc_preferred(actual_batteries_over_time, soc_preferred_list_over_t
 
     ax1.plot(avg_soc_preferred_over_time, label='average soc_preferred over time')
     ax1.plot(avg_soc_actual_over_time, label='average soc_actual over time')
-    ax1.plot(deficit_total_over_time, label='total deficit on each step')
-    ax1.plot(production_series_total, alpha=0.5, label='total deficit progress')
+    ax1.plot(avg_deficit_total_over_time, label='total deficit on each step')
+    # ax1.plot(production_series_total, alpha=0.5, label='total production over time')
+
+
+    # std_soc_preferred_list_over_time = np.std(soc_preferred_list_over_time, axis=0)
+    # std_actual_batteries_over_time = np.std(actual_batteries_over_time, axis=0)
+    # min_soc_preferred_list_over_time = min(soc_preferred_list_over_time, axis=0)
+    # max_soc_preferred_list_over_time = max(soc_preferred_list_over_time, axis=0)
+    # min_actual_batteries_over_time = min(actual_batteries_over_time, axis=0)
+    # max_actual_batteries_over_time = max(actual_batteries_over_time, axis=0)
 
     for i in range(N):
         ax2.plot(soc_preferred_list_over_time[i], label='soc_preferred for agent' + str(i))
@@ -294,7 +303,7 @@ def plot_avg_soc_preferred(actual_batteries_over_time, soc_preferred_list_over_t
     ax2.set_title('preferred soc for each agent')
     ax3.set_title('actual soc for each agent')
 
-
+    fig_soc_preferred.show()
     fig_soc_preferred.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_soc_preferred.pdf', bbox_inches='tight')  # save the figure to file
 
 def plot_supply_demand(E_total_supply, E_actual_supplied_total, demand_in_grid_over_time, N):
@@ -309,10 +318,7 @@ def plot_supply_demand(E_total_supply, E_actual_supplied_total, demand_in_grid_o
     ax1.legend()
     plt.suptitle('Supply vs Demand')
 
-
-
     fig_supply_demand.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_supply_demand.pdf', bbox_inches='tight')  # save the figure to file
-
 
 # def soc_households():
 #
@@ -341,8 +347,6 @@ def plot_input_data(big_data_file, sim_steps,N):
         for i in range(sim_steps):
             load_series[i] = big_data_file[i][agent][0]
             production_series[i] = big_data_file[i][agent][1]
-
-        for i in range(sim_steps):
             load_series_total[i] += load_series[i]
             production_series_total[i] += production_series[i]
 

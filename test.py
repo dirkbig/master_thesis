@@ -1,10 +1,7 @@
 import numpy as np
 
-a = np.array([1,2,3,4,5])
+a = [1, 3,0, 2,4,2,4,2,]
 
-b = [1,4]
+std = np.std(a)
 
-c = a[b].sum()
-
-
-print(c)
+print(std)
