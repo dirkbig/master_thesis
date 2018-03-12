@@ -8,15 +8,40 @@ from mesa import Agent, Model
 #########################
 ### SYNCHRONOUS MODEL ###
 #########################
-"""All starting parameters are initialised"""
+
+"""
+Decide in microgrid_model
+    Blockchain on or off?
+    Trading mode: what sellers utility?
+        No utility and just supply everything it has
+        No prediction utility
+        Prediction utility
+"""
+
+""""""""""""""""""""""""""
+""" BLOCKCHAIN ON/OFF  """
+""""""""""""""""""""""""""
+blockchain = 'off'
+
+""""""""""""""""""""""""""""""""""""""""""""
+""" TRADING ON/NO-PREDICTION/SUPPLY-ALL  """
+""""""""""""""""""""""""""""""""""""""""""""
+trading = 'supply_all'
+# trading = 'on_without_prediction'
+# trading = 'on'
+
+
+
+
+""""""""""""""
+""" INIT   """
+""""""""""""""
 starting_point = 0
 stopping_point = 7200 - starting_point - 200
 step_day = 1440
-timestep = 5
 days = 5
-blockchain = 'off'
 
-step_time = 10
+step_time =  10
 total_steps = step_day*days
 sim_steps = int(total_steps/step_time)
 
@@ -39,15 +64,13 @@ e_supply = 0.1
 
 
 class HouseholdAgent(Agent):
-
-
     """All microgrid household(agents) should be generated here; initialisation of prosumer tools """
     def __init__(self, unique_id, model, w3, addr):
         super().__init__(unique_id, model)
 
         """agent characteristics"""
         self.id = unique_id
-        self.battery_capacity_n = 3                           # every household has an identical battery, for now
+        self.battery_capacity_n = 15                            # every household has an identical battery, for now
         self.pv_generation = random.uniform(0, 1)               # random.choice(range(15)) * pvgeneration
         self.consumption = random.uniform(0, 1)                 # random.choice(range(15)) * consumption
         self.classification = []
@@ -80,12 +103,15 @@ class HouseholdAgent(Agent):
         self.predicted_E_surplus_list = np.zeros(self.horizon_agent)
         self.w_j_prediction = 0.5
         """Battery related"""
-        self.soc_actual = self.battery_capacity_n
+        self.soc_actual = 0 #self.battery_capacity_n
         self.soc_preferred = self.soc_actual * 0.7
-
         self.soc_gap = 0
         self.soc_influx = 0
         self.batt_available = self.battery_capacity_n - self.soc_actual
+
+        """ Actuator saturation of DER"""
+        self.actuator_sat_PV = get_PV_satuation(step_time)
+        self.actuator_sat_ESS_discharge, self.actuator_sat_ESS_charge = get_ESS_satuation(step_time)
 
         self.soc_surplus = 0
         self.charge_rate = 0
@@ -158,10 +184,12 @@ class HouseholdAgent(Agent):
             self.soc_surplus = abs(self.soc_gap)
             self.soc_gap = 0
 
+
         """determines in how many steps agent ideally wants to fill up its battery if possible"""
         self.charge_rate = 10
         self.discharge_rate = 10
         self.lower_bound_on_w_j = 0
+
 
         """define buyers/sellers classification"""
         [classification, surplus_agent, demand_agent] = define_pool(self.consumption, self.pv_generation, self.soc_gap, self.soc_surplus, self.charge_rate, self.discharge_rate)
@@ -170,7 +198,6 @@ class HouseholdAgent(Agent):
         self.batt_available = self.battery_capacity_n - self.soc_actual
 
         """Define players pool and let agents act according to battery states"""
-
         if self.classification == 'buyer':
             """buyers game init"""
             self.E_i_demand = demand_agent
@@ -218,13 +245,13 @@ class HouseholdAgent(Agent):
 
         """ Broadcast promise through blockchain public ledger """
         if blockchain == 'on':
-            self.broadcast_agent_info(w3, contract_instance)
+            self.broadcast_agent_info(w3, contract_instance, N, steps)
 
         """ MAKE TRANSACTION:
             information on E_demand/E_surplus, initial c_i/w_j """
 
 
-    def broadcast_agent_info(self, w3, contract_instance, N):
+    def broadcast_agent_info(self, w3, contract_instance, N, timestamp):
         if blockchain == 'off':
             return
 
@@ -235,13 +262,14 @@ class HouseholdAgent(Agent):
             E_demand_broadcast = self.E_i_demand
             self.w_j_storage_factor = 0
             self.E_j_surplus = 0
-            self.promise_on_bc = setter_promise_buy(w3, contract_instance, self.address_agent, E_demand_broadcast, c_i_broadcast)
+            self.promise_on_bc = setter_promise_buy(w3, contract_instance, self.address_agent, E_demand_broadcast, c_i_broadcast, timestamp)
         if self.classification == 'seller':
             w_j_broadcast = self.w_j_storage_factor
             E_surplus_broadcast = self.E_j_surplus
             self.c_i_bidding_price = 0
             self.E_i_demand = 0
-            self.promise_on_bc = setter_promise_sell(w3, contract_instance, self.address_agent, E_surplus_broadcast, w_j_broadcast)
+            self.promise_on_bc = setter_promise_sell(w3, contract_instance, self.address_agent, E_surplus_broadcast, w_j_broadcast, timestamp)
+
 
 
         return
@@ -252,7 +280,7 @@ class HouseholdAgent(Agent):
 	    Decide on this.."""
 
 
-    def settlement_of_payments(self, w3, contract_instance, N):
+    def settlement_of_payments(self, w3, contract_instance, N, timestamp):
         if blockchain == 'off':
             return
 
@@ -261,16 +289,15 @@ class HouseholdAgent(Agent):
         if self.classification == 'buyer':
             # promise_on_bc = contract_instance.promiseOfbuy(self.address_agent)
             # print(promise_on_bc, self.payment)
-            self.balance_on_bc = setter_burn(w3, contract_instance, self.address_agent, int(self.payment))
+            self.balance_on_bc = setter_burn(w3, contract_instance, self.address_agent, int(self.payment), timestamp)
             self.revenue = 0
         if self.classification == 'seller':
             # promise_on_bc = contract_instance.promiseOfsell(self.address_agent)
             # print(promise_on_bc, self.payment)
-            self.balance_on_bc = setter_mint(w3, contract_instance, self.address_agent, int(self.revenue))
+            self.balance_on_bc = setter_mint(w3, contract_instance, self.address_agent, int(self.revenue), timestamp)
             self.payment = 0
 
 
-        # print('balance of agent %d = %d' % (self.id, self.balance_on_bc))
         return
 
 
@@ -396,7 +423,6 @@ class MicroGrid_sync(Model):
         self.utilities_sellers = np.zeros((N, 3))
         self.utilities_buyers = np.zeros((N, 4))
 
-        # random.shuffle(self.agents)
         for agent in self.agents[:]:
             self.E_consumption_list[agent.id] = agent.pv_generation
             self.E_production_list[agent.id] = agent.consumption
@@ -567,7 +593,7 @@ class MicroGrid_sync(Model):
                 (which will be more expensive than buying from Alice) needs to be minimised. 
                 Utility of buyer should be: (total energy demand - the part allocated from alice(c_i) ) * c_macro
                 then allocation will be increased by offering more money"""
-
+                random.shuffle(self.agents)
                 for agent in self.agents[:]:
                     if agent.classification == 'buyer' and agent.classification != 'seller':
                         """preparation for update"""
@@ -585,7 +611,7 @@ class MicroGrid_sync(Model):
                                                                              agent.bidding_prices_others,
                                                                              agent.batt_available,
                                                                              agent.soc_gap,
-                                                                             lambda_set)
+                                                                             lambda_set, agent.actuator_sat_ESS_charge)
                         agent.c_i_bidding_price =  sol_buyer.x[0]
                         if np.isnan(agent.c_i_bidding_price):
                             agent.c_i_bidding_price = 0
@@ -607,7 +633,7 @@ class MicroGrid_sync(Model):
                         self.utilities_buyers[agent.id] = [agent.utility_i, demand_gap, utility_demand_gap, utility_costs]
 
                         if agent.utility_i - sol_buyer.fun > 1:
-                            sys.exit("utility_i calculation does not match with optimization code")
+                            # sys.exit("utility_i calculation does not match with optimization code")
                             pass
 
                         """ tolerances """
@@ -659,6 +685,7 @@ class MicroGrid_sync(Model):
                     agent.bidding_prices_others = sum(self.c_bidding_prices) - agent.c_i_bidding_price
                     agent.E_supply_others_prediction = self.E_supply_prediction - agent.E_prediction_agent  #+ self.battery_soc_total - agent.battery_capacity_n
 
+                random.shuffle(self.agents)
                 for agent in self.agents[:]:
                     if agent.classification == 'seller':
                         """ Sellers optimization game, plugging in bidding price to decide on sharing factor.
@@ -668,6 +695,8 @@ class MicroGrid_sync(Model):
                         prev_wj = agent.w_j_storage_factor
                         agent.bidding_prices_others = sum(self.c_bidding_prices)
                         """ Optimization """
+
+                        # if trading == 'on' or trading == 'on_without_prediction':
                         sol_seller, \
                         sol_seller.x[0], \
                         utility_seller_function = sellers_game_optimization(agent.id,
@@ -679,7 +708,7 @@ class MicroGrid_sync(Model):
                                                                                 agent.w_j_storage_factor,
                                                                                 agent.E_prediction_agent,
                                                                                 agent.lower_bound_on_w_j,
-                                                                                lambda_set)
+                                                                                lambda_set, agent.actuator_sat_ESS_discharge)
 
                         agent.w_j_storage_factor = sol_seller.x[0]
                         prediction_utility, direct_utility, agent.utility_j = calc_utility_function_j(agent.id,
@@ -690,12 +719,20 @@ class MicroGrid_sync(Model):
                                                                                                     agent.E_supply_others_prediction,
                                                                                                     agent.w_j_storage_factor,
                                                                                                     agent.E_prediction_agent, lambda_set)
+
                         if abs(agent.utility_j - sol_seller.fun) > 10:
-                            sys.exit("utility_j calculation does not match with optimization code")
+                            exit("utility_j calculation does not match with optimization code")
                             pass
 
                         agent.utility_seller = [agent.utility_j, prediction_utility, direct_utility]
                         self.utilities_sellers[agent.id] = agent.utility_seller
+
+
+
+                        # if trading == 'supply_all':
+                        #     agent.w_j_storage_factor = 1
+                        #     agent.utility_seller = 1
+
 
                         """ Update on values """
                         agent.E_j_supply = agent.E_j_surplus * agent.w_j_storage_factor
@@ -711,6 +748,7 @@ class MicroGrid_sync(Model):
                         tolerance_sellers[agent.id] = abs(new_wj - prev_wj)
                     else:
                         agent.w_j_storage_factor = 0
+                        agent.E_j_supply = 0
 
 
                 self.E_total_supply = sum(self.E_total_supply_list)
@@ -738,7 +776,7 @@ class MicroGrid_sync(Model):
             epsilon_c_nominal = abs(tolerance_c_nominal)
             self.E_actual_supplied_list = np.zeros(N)
             """ END OF ROUND criteria """
-            if (epsilon_c_nominal < e_cn and tolerance_supply < e_supply) or self.num_global_iteration > 50:
+            if (epsilon_c_nominal < e_cn and tolerance_supply < e_supply) or self.num_global_iteration > 200:
                 for agent in self.agents[:]:
                     self.E_allocation_list[agent.id] = agent.E_i_allocation
                 self.E_total_supply = sum(self.E_total_supply_list)
@@ -771,7 +809,7 @@ class MicroGrid_sync(Model):
                 """ buyers costs """
                 # agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
                 self.supply_deals[agent.id] = agent.E_i_allocation
-                agent.soc_influx = agent.E_i_allocation - agent.E_i_demand
+                agent.soc_influx = agent.E_i_allocation - agent.consumption
                 if agent.soc_actual + agent.soc_influx < 0:
                     """ battery is depleting """
                     agent.deficit = agent.soc_actual + agent.soc_influx
@@ -790,8 +828,6 @@ class MicroGrid_sync(Model):
         for agent in self.agents[:]:
             agent.revenue = 0
             if agent.classification == 'seller':
-                if self.steps == 25:
-                    print('pause')
                 """ sellers earnings """
                 agent.soc_influx = agent.E_j_surplus * (1 - agent.w_j_storage_factor) + agent.E_j_returned_supply
                 if agent.soc_actual + agent.soc_influx < 0:
@@ -809,12 +845,18 @@ class MicroGrid_sync(Model):
                     agent.revenue = 0
 
                 agent.soc_actual += agent.soc_influx
+
+                # """ HERE W IS UPDATED WRT OVERSUPPLY!"""
+                # agent.w_j_storage_factor = agent.soc_influx / agent.E_j_surplus
+
             self.actual_batteries[agent.id] = agent.soc_actual
         if np.any(self.actual_batteries) < 0 or np.any(self.actual_batteries) > agent.battery_capacity_n:
             exit("negative battery soc, physics are broken")
 
         self.deficit_total_progress += self.deficit_total
         self.battery_soc_total = sum(self.actual_batteries)
+        if self.battery_soc_total < 0:
+            print("negative battery soc")
 
         """ Pull data out of agents """
         total_soc_pref = 0
@@ -826,7 +868,7 @@ class MicroGrid_sync(Model):
         """ Blockchain """
         if blockchain == 'on':
             for agent in self.agents[:]:
-                agent.settlement_of_payments(self.w3, self.contract_instance)
+                agent.settlement_of_payments(self.w3, self.contract_instance, self.steps)
 
         self.profit_list = np.zeros(N)
         """ Costs on this step"""

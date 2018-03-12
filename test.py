@@ -1,7 +1,7 @@
 import numpy as np
 
-a = [1, 3,0, 2,4,2,4,2,]
+a = [1, 5,0], [2,4,2]
 
-std = np.std(a)
+min = np.std(a, axis=0)
 
-print(std)
+print(min)

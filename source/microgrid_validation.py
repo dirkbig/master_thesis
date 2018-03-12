@@ -4,7 +4,7 @@
     NO prediction or batteries """
 
 from source.function_file import *
-from source.plots import *
+from source.plots_normalrunner import *
 import sys
 
 import pandas as pd

@@ -1,8 +1,8 @@
 import numpy as np
-from source.plots_thesis_grade import *
+from source.plots_batchrunner import *
 container = []
 
-batch_id = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata_test/batch_id_14_16_12__01_03_2018.npy')
+batch_id = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata_test/batch_id.npy')
 agents_low, agents_high, length_sim = batch_id
 num_steps = length_sim
 range_agents = agents_high - agents_low
@@ -10,43 +10,49 @@ num_batches = len(range(agents_low, agents_high))
 comm_reach = None
 
 for N in range(agents_low, agents_high):
-    batchdata_zip = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata_test/batch_data_Nis' + str(N) + '_commreachis' + str(comm_reach) + '.npz')
+    batchdata_zip = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata_analyser/batch_data_Nis' + str(N) + '_commreachis' + str(comm_reach) + '.npz')
     batchdata = dict(zip(('profit_list_summed_over_time',
-                          'number_of_buyers_over_time',
-                          'number_of_sellers_over_time',
-                          'supplied_over_time_list',
-                          'E_demand_over_time',
-                          'c_nominal_over_time',
-                          'deficit_total_over_time',
-                          'deficit_total_progress_over_time',
-                          'avg_soc_preferred_over_time',
-                          'surplus_on_step_over_time',
-                          'w_nominal_over_time',
-                          'mean_sharing_factors',
-                          'E_prediction_over_time',
-                          'R_prediction_over_time',
-                          'R_real_over_time',
-                          'E_total_supply_over_time',
-                          'E_actual_supplied_total',
-                          'num_global_iteration_over_time',
-                          'num_buyer_iteration_over_time',
-                          'num_seller_iteration_over_time',
-                          'utilities_sellers_over_time',
-                          'utilities_buyers_over_time',
-                          'E_consumption_list_over_time',
-                          'E_production_list_over_time',
-                          'E_demand_list_over_time',
-                          'E_allocated_list_over_time',
-                          'c_prices_over_time',
-                          'payment_list_over_time',
-                          'E_surplus_over_time',
-                          'E_total_supply_list_over_time',
-                          'E_actual_supplied_list_over_time',
-                          'revenue_list_over_time',
-                          'actual_batteries_over_time',
-                          'socs_preferred_over_time',
-                          'profit_list_over_time',
-                          'number_of_agents'), (batchdata_zip[batch] for batch in batchdata_zip)))
+                      'number_of_buyers_over_time',
+                      'number_of_sellers_over_time',
+                      'supplied_over_time_list',
+                      'E_demand_over_time',
+                      'c_nominal_over_time',
+                      'deficit_total_over_time',
+                      'deficit_total_progress_over_time',
+                      'avg_soc_preferred_over_time',
+                      'surplus_on_step_over_time',
+                      'w_nominal_over_time',
+                      'mean_sharing_factors',
+                      'E_prediction_over_time',
+                      'R_prediction_over_time',
+                      'R_real_over_time',
+                      'E_total_supply_over_time',
+                      'E_actual_supplied_total',
+                      'num_global_iteration_over_time',
+                      'num_buyer_iteration_over_time',
+                      'num_seller_iteration_over_time',
+                      'utilities_sellers_over_time',
+                      'utilities_buyers_over_time',
+                      'E_consumption_list_over_time',
+                      'E_production_list_over_time',
+                      'E_demand_list_over_time',
+                      'E_allocated_list_over_time',
+                      'c_prices_over_time',
+                      'payment_list_over_time',
+                      'E_surplus_over_time',
+                      'E_total_supply_list_over_time',
+                      'E_actual_supplied_list_over_time',
+                      'revenue_list_over_time',
+                      'actual_batteries_over_time',
+                      'socs_preferred_over_time',
+                      'profit_list_over_time',
+                      'w_sharing_factors_list_over_time',
+                      'big_data_file',
+                      'sim_steps',
+                      'R_real_over_time',
+                      'production_series_total',
+                      'deficit_total_progress_over_time',
+                      'number_of_agents', 'number_prosumers'), (batchdata_zip[batch] for batch in batchdata_zip)))
     container = np.append(container, batchdata)
 
 num_batches = agents_high - agents_low
@@ -136,7 +142,6 @@ for batch in range(agents_high - agents_low):
 E_total_supply_list_over_time_batch = np.reshape(E_total_supply_list_over_time_batch, (num_total_rows, num_steps))
 actual_batteries_list_over_time_batch = np.reshape(actual_batteries_list_over_time_batch, (num_total_rows, num_steps))
 
-print(np.shape(actual_batteries_list_over_time_batch))
 
 
 E_total_supply_list_over_time_mean = np.zeros((num_batches,num_steps))
@@ -157,7 +162,7 @@ for batch in range(num_batches):
 
 
 list_mean_iterations_batch = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata_test/list_mean_iterations_batch.npy')
-# thesis_supply_demand_batch_plot(E_total_supply_list_over_time_mean, w_nominal_over_time_batch, num_batches)
-# thesis_iteration_plot(list_mean_iterations_batch, num_batches, range_agents, agents_low, agents_high)
-# thesis_control_values_plot(c_nominal_over_time_batch, w_nominal_over_time_batch, num_batches)
+thesis_supply_demand_batch_plot(E_total_supply_list_over_time_mean, w_nominal_over_time_batch, num_batches)
+thesis_iteration_plot(list_mean_iterations_batch, num_batches, range_agents, agents_low, agents_high)
+thesis_control_values_plot(c_nominal_over_time_batch, w_nominal_over_time_batch, num_batches)
 thesis_soc_batch_plot(actual_batteries_list_over_time_batch, socs_preferred_over_time_batch, E_actual_supplied_total_batch, num_batches, agents_low, num_steps)

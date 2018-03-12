@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 
-# from source.plots import *
-
-
+#prediction = 'off'
+prediction = 'on'
+factor_revenue = 1
 
 """ DATA """
 def check_file(filename):
@@ -28,7 +28,6 @@ def get_usable():
         for row in csv_usable:
             list_usable_folders = np.append(list_usable_folders, int(row[-1]))
         return list_usable_folders, len(list_usable_folders)
-
 
 
 def read_csv_production(filename,duration):
@@ -169,33 +168,24 @@ def allocation_i(E_total_supply, c_i_bidding_price, c_bidding_prices_others):
 
 
 def calc_gamma():
-    return random.uniform(0, 1)
     """This function will ultimately predict storage weight
     This will involve some model predictive AI"""
+    return random.uniform(0, 1)
 
-def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidding_price_i_prev, bidding_prices_others_opt, E_batt_available, SOC_gap_agent, lambda_set):
+
+def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidding_price_i_prev, bidding_prices_others_opt, E_batt_available, SOC_gap_agent, lambda_set, actuator_saturation_ESS_charge):
     """Level 1 game: distributed optimization"""
-    """ https: // stackoverflow.com / questions / 17009774 / quadratic - program - qp - solver - that - only - depends - on - numpy - scipy """
-    """globally declared variables, do not use somewhere else!!"""
+
     def utility_buyer(c_i, E_i_opt, E_j_opt, c_l_opt, lambda11, lambda12):
-        """self designed parametric utility function"""
-        """ Closing the gap vs costs for closing the gap"""
-
-
-        # u_i = (abs(E_i_opt - E_j_opt * c_i / (c_l_opt + c_i)))**lambda11 + (c_i * E_j_opt * (c_i/(c_l_opt + c_i)))**lambda12
-        # if RuntimeWarning:
-        #     return 0
-        # return u_i
-
-        try:
-            return (abs(E_i_opt - E_j_opt * c_i / (c_l_opt + c_i)))**lambda11 + (c_i * E_j_opt * (c_i/(c_l_opt + c_i)))**lambda12
-        except RuntimeWarning:
+        """self designed parametric utility function, Closing the gap vs costs for closing the gap"""
+        if (c_l_opt + c_i) > 0 and c_i > 0:
+            try:
+                return (abs(E_i_opt - E_j_opt * c_i / (c_l_opt + c_i)))**lambda11 + (c_i * E_j_opt * (c_i/(c_l_opt + c_i)))**lambda12
+            except RuntimeWarning:
+                return 0
+        else:
             return 0
 
-
-
-
-    bounds_buyer = [(0, None)]
 
     E_i = E_i_demand
     E_j = supply_on_step
@@ -203,6 +193,9 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
     soc_av = E_batt_available
     soc_gap = SOC_gap_agent
 
+
+    # cons_sat = {'type': 'ineq', 'fun': lambda x: actuator_saturation_ESS_charge -  E_j * x / (c_l + x)}
+    bounds_buyer = [(0, None)]
     init = bidding_price_i_prev
 
     lambda11 = lambda_set[0]
@@ -230,20 +223,21 @@ def calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bid
 
     return utility_i, demand_gap, utility_demand_gap, utility_costs
 
-def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lower_bound_on_w_j, lambda_set):
+
+
+def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lower_bound_on_w_j, lambda_set, actuator_saturation_ESS_discharge):
     """ Anticipation on buyers is plugged in here"""
 
     """ This is a MAXIMIZATION of revenue"""
     def utility_seller(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt, E_j_p_opt, lambda21, lambda22):
 
-        """New Utility"""
-        u_j =  - ( (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
-                       + (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22 )
-
+        """ Utility function seller with prediction decision """
         return - ( (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
                        + (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22 )
 
-    bounds_seller = [(min(lower_bound_on_w_j, 0.99), 1.0)]
+    # def utility_seller_no_prediction(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt, E_j_p_opt, lambda21, lambda22):
+    #     """ Utility function seller without prediction decision"""
+    #     return np.log(1 + E_j_opt * (1 - w)) + factor_revenue * (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w)))
 
     R_p = R_prediction
     E_j = E_j_seller
@@ -255,16 +249,20 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
     lambda21 = lambda_set[2]
     lambda22 = lambda_set[3]
 
+    # cons_sat = {'type': 'ineq', 'fun': lambda w: actuator_saturation_ESS_discharge - E_j * w / (E_d + E_j * w)}
+    bounds_seller = [(min(lower_bound_on_w_j, 0.99), 1.0)]
     init = w_j_storage_factor
 
-    """  - (R_prediction * (E_j_prediction_seller * (1 - w_j_storage_factor) / (E_supply_prediction + E_j_prediction_seller * (1 - w_j_storage_factor))))**lambda21 
-         - (R_direct     * (E_j_seller *                 w_j_storage_factor  / (E_supply_others     + E_j_seller *                 w_j_storage_factor)))**lambda22
-    """
-
     sol_seller = minimize(lambda w : utility_seller(w, R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22), init, method='SLSQP', bounds=bounds_seller)
-
-    """return 5th element of solution vector."""
     return sol_seller, sol_seller.x[0], utility_seller(sol_seller.x[0], R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22)
+
+    # if prediction == 'off':
+    #     sol_seller = minimize(lambda w: utility_seller_no_prediction(w, R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22), init,
+    #                           method='SLSQP', bounds=bounds_seller)
+
+    # """return 5th element of solution vector."""
+    # if prediction == 'on':
+
 
 def calc_utility_function_j(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lambda_set):
     """This function calculates sellers utility"""
@@ -279,10 +277,15 @@ def calc_utility_function_j(id_seller, E_j_seller, R_direct, E_supply_others, R_
     lambda21 = lambda_set[2]
     lambda22 = lambda_set[3]
 
-    prediction_utility =    - (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
-    direct_utility =        - (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22
+    if prediction == 'on':
+        prediction_utility =    - (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
+        direct_utility =        - (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22
+        utility_j = prediction_utility + direct_utility
 
-    utility_j = prediction_utility + direct_utility
+    if prediction == 'off':
+        utility_j =   np.log(1 + E_j_opt * (1 - w)) + factor_revenue * (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w)))
+        prediction_utility = None
+        direct_utility = None
 
     return prediction_utility, direct_utility, utility_j
 
@@ -417,8 +420,11 @@ def calc_w_prediction():
 def calc_wj(E_demand, E_horizon):
     w_j_storage = (E_demand**2/sum(E_horizon**2))
     return w_j_storage
-"""DYNAMICS"""
 
+
+
+
+"""GRID DYNAMICS"""
 def Peukerts_law():
     """Discharging slower is better/more efficient!"""
     # k = 1.2
@@ -426,6 +432,23 @@ def Peukerts_law():
     # efficiency_discharge =
     """http://ecee.colorado.edu/~ecen2060/materials/lecture_notes/Battery3.pdf"""
     return
+
+def get_PV_satuation(step_time):
+
+    return
+
+def get_ESS_satuation(step_time):
+    """ Actuator saturation for supplying or recieving energy in kWh"""
+    P_max_charge    = (0.2 * 230 * 65) / (1000 * (60 / step_time))
+    P_max_discharge = (0.2 * 230 * 65) / (1000 * (60 / step_time))
+
+    return P_max_discharge, P_max_charge
+
+
+
+
+
+
 
 
 """ Functions specific to Validation algorithm"""
@@ -520,6 +543,15 @@ def prediction_base_function(R_total, big_data_file, horizon, prediction_range, 
 def isNaN(num):
     return num != num
 
+
+
+
+
+
+
+
+
+
 """ Costfunction of generation; PSO general"""
 def costfunction(x, *args):
     """ Costfunction """
@@ -529,7 +561,6 @@ def costfunction(x, *args):
     gamma_vector_pso = args[2]
     cost = sum(alpha_vector_pso) + np.dot(beta_vector_pso, x) + np.dot(gamma_vector_pso, x ** 2)
     return cost
-
 
 """ PSO validation HIERARCHICAL"""
 def buyer_objective_function_PSO(c, args_buyer):
@@ -553,7 +584,6 @@ def buyer_objective_function_PSO(c, args_buyer):
         cost_buyers += abs(E_i_opt - E_j_opt * c[i] / (c_l_opt + c[i])) ** _lambda11 + (c[i] * E_j_opt * (c[i] / (c_l_opt + c[i]))) ** _lambda12
 
     return cost_buyers
-
 
 def seller_objective_function_PSO(w, args_seller):
     """ Costfunction Sellers PSO"""
@@ -582,8 +612,6 @@ def seller_objective_function_PSO(w, args_seller):
 
     return cost_sellers
 
-
-
 def combined_objective_function_PSO(x, *args):
     N_mixed, args_buyer, args_seller = args
     N = N_mixed[0]
@@ -595,7 +623,6 @@ def combined_objective_function_PSO(x, *args):
     cost_buyers = buyer_objective_function_PSO(c, args_buyer)
     cost_sellers = seller_objective_function_PSO(w, args_seller)
     cost_sellers = abs(cost_sellers)
-
 
     cost_total = cost_buyers + cost_sellers
 

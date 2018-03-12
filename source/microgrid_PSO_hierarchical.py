@@ -287,7 +287,7 @@ class HouseholdAgent(Agent):
 
 """Microgrid model environment"""
 
-class MicroGrid_PSO(Model):
+class MicroGrid_PSO_Hierarchical(Model):
 
 
     """create environment in which agents can operate"""
