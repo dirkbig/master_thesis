@@ -451,7 +451,7 @@ def plot_iterations(global_iteration_over_time, buyer_iteration_over_time, selle
     plt.plot(buyer_iteration_over_time, label='buyers-level iterations')
     plt.plot(seller_iteration_over_time, label='sellers-level iterations')
 
-    fig_plot_iterations.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_iterations.pngpng', bbox_inches='tight')  # save the figure to file
+    fig_plot_iterations.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_iterations.png', bbox_inches='tight')  # save the figure to file
 
 
 

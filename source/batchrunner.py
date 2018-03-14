@@ -31,8 +31,8 @@ community_size = None
 mode = 'normal'
 # mode = 'batchrunner'
 
-model = 'sync'
-#model = 'async'
+# model = 'sync'
+model = 'async'
 #model = 'pso'
 #model = 'pso_hierarchical'
 #model = 'pso_not_hierarchical'
@@ -46,7 +46,7 @@ model = 'sync'
 
 """ init for normal mode   """
 """"""""""""""""""""""""""""""
-normal_batchrunner_N = 20
+normal_batchrunner_N = 8
 normal_batchrunner_comm_radius = 3
 
 
@@ -65,11 +65,11 @@ if community_size == 'large':
 
 """ general init """
 """"""""""""""""""""
-penetration_prosumers = 0.5
+penetration_prosumers = 1
 lambda11 = 2
 lambda12 = 1
-lambda21 = 2.2
-lambda22 = 1.9
+lambda21 = 2
+lambda22 = 2
 lambda_set = [lambda11, lambda12, lambda21, lambda22]
 
 range_parameter_sweep = 10
@@ -86,8 +86,8 @@ parameter_sweep_dict = {'max_horizon': np.arange(horizon_low, horizon_high, rang
 """"""""""""""
 """ Plots  """
 """"""""""""""
-#plots = 'on'
-plots = 'off'
+plots = 'on'
+#plots = 'off'
 
 """"""""""""""""""""""""
 """ START            """
@@ -235,8 +235,8 @@ def run_mg(sim_steps, N, model_run_mg, args_run_mg):
     """ Number of prosumers and consumers """
     number_prosumers = int(N * penetration_prosumers)
     number_consumers = N - number_prosumers
-    print('number of prosumers:', N - number_consumers)
-    print('number of consumers:', N - number_consumers)
+    print('number of prosumers:', number_prosumers)
+    print('number of consumers:', N - number_prosumers)
 
 
     """ First part of agent list consists of prosumers, the rest are consumers"""
@@ -274,10 +274,10 @@ def run_mg(sim_steps, N, model_run_mg, args_run_mg):
         for agent in range(N):
             big_data_file[step][agent][0] = load_file_agents_time[agent][step]**0.5 * sine_wave_consumption_series[step]*agent_char_load[agent] /1
             big_data_file[step][agent][1] = production_file_agents_time[agent][step] * agent_char_prod[agent] * factor * 0.95 /1
-            """ give a disturbance in load/generation """
-            """ distrubance of generation on a cloudy day: does prediction work???"""
-            if step > 300 and step < 450:
-                big_data_file[step][agent][1] = 0
+            # """ give a disturbance in load/generation
+            #     distrubance of generation on a cloudy day: does prediction work???"""
+            # if step > 300 and step < 450:
+            #     big_data_file[step][agent][1] = 0
 
 
 
@@ -698,7 +698,7 @@ if mode == 'normal':
         """ adaptive communication topology (depending on size of grid)"""
         for comm_reach in range(comm_radius):
             args = [comm_reach, lambda_set, parameter_sweep_dict]
-            global_mean, buyer_mean, seller_mean = run_mg(sim_steps, N, model, args)
+            global_mean, buyer_mean, seller_mean, length_sim = run_mg(sim_steps, N, model, args)
     elif model == 'pso':
         comm_reach = None
         run_mg(sim_steps, N, model, args)

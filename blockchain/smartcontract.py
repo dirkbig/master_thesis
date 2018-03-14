@@ -89,6 +89,16 @@ def compile_smart_contract():
         function returnPromiseOfbuy(address _account) constant returns (uint256){
             return promiseOfbuy[_account];
             }
+        
+        
+        function returnTimestampAction(address _account) constant returns (uint256){
+            return lastUpdateAction[_account];   
+            }
+        
+        function returnTimestampPromise(address _account) constant returns (uint256){
+            return lastUpdatePromise[_account];   
+            }
+
 
 
         //Internal transfer
@@ -156,7 +166,6 @@ def compile_smart_contract():
     compiled_sol = compile_source(contract_source_code) # Compiled source code
     contract_interface = compiled_sol['<stdin>:HouseholdToken']
     w3 = Web3(TestRPCProvider())
-
     return contract_interface, w3
 
 
@@ -231,12 +240,12 @@ def setter_promise_sell(w3, contract_instance, promiser, value, c_i_broadcast, t
     value_int = int(value)
 
     if contract_kind == 'classic':
-        tx_hash = contract_instance.transact({'from': promiser, 'to': promiser}).makePromiseOfsell(promiser, value_int)
+        tx_hash = contract_instance.transact({'from': promiser, 'to': promiser}).makePromiseOfsell(promiser, value_int,timestamp)
         receipt = w3.eth.getTransactionReceipt(tx_hash)
         promise_of_sell = contract_instance.call({'from': promiser, 'to': promiser}).getBalance(promiser)
 
     elif contract_kind == 'concise':
-        contract_instance.makePromiseOfsell(promiser, value_int, transact={'from': promiser})
+        contract_instance.makePromiseOfsell(promiser, value_int, timestamp, transact={'from': promiser})
         promise_of_sell = contract_instance.returnPromiseOfsell(promiser)
 
     return promise_of_sell
@@ -247,12 +256,12 @@ def setter_promise_buy(w3, contract_instance, promiser, value, w_j_broadcast, ti
     value_int = int(value)
 
     if contract_kind == 'classic':
-        tx_hash = contract_instance.transact({'from': promiser, 'to': promiser}).makePromiseOfbuy(promiser, value_int)
+        tx_hash = contract_instance.transact({'from': promiser, 'to': promiser}).makePromiseOfbuy(promiser, value_int, timestamp)
         receipt = w3.eth.getTransactionReceipt(tx_hash)
         promise_of_buy = 0
 
     elif contract_kind == 'concise':
-        tx_hash = contract_instance.makePromiseOfbuy(promiser, value_int, transact={'from': promiser})
+        tx_hash = contract_instance.makePromiseOfbuy(promiser, value_int, timestamp, transact={'from': promiser})
         consumer_receipt = w3.eth.getTransactionReceipt(tx_hash)
         promise_of_buy = contract_instance.returnPromiseOfbuy(w3.eth.accounts[1])
 
@@ -265,17 +274,16 @@ def setter_burn(w3, contract_instance, consumer, value, timestamp):
     value_int = int(value)
 
     if contract_kind == 'classic':
-        tx_hash = contract_instance.transact({'from': consumer, 'to': consumer}).consumedEnergy(consumer, value_int)
+        tx_hash = contract_instance.transact({'from': consumer, 'to': consumer}).consumedEnergy(consumer, value_int, timestamp)
         receipt = w3.eth.getTransactionReceipt(tx_hash)
         balance_on_bc = 0
 
     elif contract_kind == 'concise':
-        tx_hash = contract_instance.consumedEnergy(consumer, value_int, transact={'from': consumer, 'gas': 300000})
+        tx_hash = contract_instance.consumedEnergy(consumer, value_int, timestamp, transact={'from': consumer, 'gas': 300000})
         receipt = w3.eth.getTransactionReceipt(tx_hash)
         balance_on_bc = contract_instance.getBalance(consumer)
 
 
-    print(balance_on_bc)
 
     return balance_on_bc
 
@@ -293,9 +301,25 @@ def setter_mint(w3, contract_instance, producer, value, timestamp):
         receipt = w3.eth.getTransactionReceipt(tx_hash)
         balance_on_bc = contract_instance.getBalance(producer)
 
-    print(balance_on_bc)
 
     return balance_on_bc
+
+def check_timestamp(w3, contract_instance, address_to_be_checked, step):
+
+    if contract_kind == 'classic':
+        timestamp_action = None
+        timestamp_promise = None
+
+    elif contract_kind == 'concise':
+        timestamp_action = contract_instance.returnTimestampAction(address_to_be_checked)
+        timestamp_promise = contract_instance.returnTimestampPromise(address_to_be_checked)
+
+    step_int = int(step)
+    address_action_lag = step_int - timestamp_action
+    address_promise_lag = step_int - timestamp_promise
+
+    return address_action_lag, address_promise_lag
+
 
 
 """http://web3py.readthedocs.io/en/stable/"""

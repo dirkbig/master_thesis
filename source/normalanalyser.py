@@ -4,7 +4,7 @@ from source.plots_normalrunner import *
 
 close_all()
 
-batchdata_zip = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/Disturbance/sync_no_prediction_N14_commreachisNone_distrubance.npz')
+batchdata_zip = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/constraint_comparison/sync_20_commreachisNone_cons.npz')
 batchdata = dict(zip(('profit_list_summed_over_time',
                       'number_of_buyers_over_time',
                       'number_of_sellers_over_time',

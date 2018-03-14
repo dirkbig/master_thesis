@@ -18,8 +18,8 @@ prediction = 'on'
 """"""""""""""""""""""""""""""
 """ SAT CONSTRAINT ON/OFF  """
 """"""""""""""""""""""""""""""
-# constraints = 'off'
-constraints = 'on'
+constraints = 'off'
+# constraints = 'on'
 
 
 factor_revenue = 1
@@ -196,8 +196,6 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
         except RuntimeWarning:
             return 0
 
-
-
     E_i = E_i_demand
     E_j = supply_on_step
     c_l = bidding_prices_others_opt
@@ -207,12 +205,12 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
     lambda11 = lambda_set[0]
     lambda12 = lambda_set[1]
 
-    def constraint_charging_sat(c_i):
-        return actuator_saturation_ESS_charge - -  E_j * c_i / (c_l + c_i)
 
     """ Actuator saturation on charging """
     if constraints == 'on':
-        cons_sat = {'type': 'ineq', 'fun': lambda c_i: actuator_saturation_ESS_charge -  E_j * c_i / (c_l + c_i)}
+        cons_sat = {'type': 'ineq',
+                    'fun': lambda c_i: np.array(actuator_saturation_ESS_charge -  E_j * c_i / (c_l + c_i)),
+                    'jac': lambda c_i: np.array((E_i * c_l) / ((c_l + c_i)**2))}
         """optimize using SLSQP(?)"""
         sol_buyer = minimize(lambda x: utility_buyer(x, E_i, E_j, c_l, lambda11, lambda12), init, method='SLSQP',
                              constraints=cons_sat, bounds=bounds_buyer)
@@ -248,12 +246,14 @@ def calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bid
 def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lower_bound_on_w_j, lambda_set, actuator_saturation_ESS_discharge):
     """ Anticipation on buyers is plugged in here"""
 
+
     """ This is a MAXIMIZATION of revenue"""
     def utility_seller(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt, E_j_p_opt, lambda21, lambda22):
 
         """ Utility function seller with prediction decision """
         return - ( (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
                        + (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22 )
+
 
     R_p = R_prediction
     E_j = E_j_seller
@@ -269,15 +269,20 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
 
     """ Actuator saturation on discharging """
     if constraints == 'on':
-        cons_sat = {'type': 'ineq', 'fun': lambda w: actuator_saturation_ESS_discharge + E_j * (1-w), 'jac': lambda w: E_j}
+        cons_sat = {'type': 'ineq',
+                    'fun': lambda w: np.array(actuator_saturation_ESS_discharge - E_j * (1-w)),
+                    'jac': lambda w: E_j}
         sol_seller = minimize(lambda w: utility_seller(w, R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22), init,
                               method='SLSQP', constraints=cons_sat, bounds=bounds_seller)
     else:
         sol_seller = minimize(lambda w: utility_seller(w, R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22), init,
                               method='SLSQP',  bounds=bounds_seller)
 
-
     return sol_seller, sol_seller.x[0], utility_seller(sol_seller.x[0], R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22)
+
+
+
+
 
 def sellers_game_optimization_no_prediction(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lower_bound_on_w_j, lambda_set, actuator_saturation_ESS_discharge):
     """ Anticipation on buyers is plugged in here"""
@@ -301,7 +306,9 @@ def sellers_game_optimization_no_prediction(id_seller, E_j_seller, R_direct, E_s
 
     """ Actuator saturation on charging """
     if constraints == 'on':
-        cons_sat = {'type': 'ineq', 'fun': lambda w: actuator_saturation_ESS_discharge - E_j * (1-w), 'jac': lambda w: E_j}
+        cons_sat = {'type': 'ineq',
+                    'fun': lambda w: np.array(actuator_saturation_ESS_discharge - E_j * (1-w)),
+                    'jac': lambda w: E_j}
         sol_seller = minimize(
             lambda w: utility_seller_no_prediction(w, R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22), init,
             method='SLSQP', constraints=cons_sat, bounds=bounds_seller)
@@ -494,8 +501,8 @@ def get_PV_satuation(step_time):
 
 def get_ESS_satuation(step_time):
     """ Actuator saturation for supplying or recieving energy in kWh"""
-    P_max_charge    = (0.2 * 230 * 65) / (1000 * (60 / step_time))
-    P_max_discharge = (0.2 * 230 * 65) / (1000 * (60 / step_time))
+    P_max_charge    = (0.2 * 15) / ((60 / step_time))
+    P_max_discharge = (0.2 * 15) / ((60 / step_time))
 
     return P_max_discharge, P_max_charge
 
@@ -535,9 +542,9 @@ def prediction_base_function(R_total, big_data_file, horizon, prediction_range, 
     """ Prediction base function"""
 
     """ surplus_prediction/demand_per_step_prediction gives predicted surplus/demand; per step, per agent"""
-    surplus_prediction = np.zeros((prediction_range, len(agents)))
-    demand_per_step_prediction = np.zeros((prediction_range, len(agents)))
-
+    surplus_prediction = np.zeros((prediction_range, N))
+    demand_per_step_prediction = np.zeros((prediction_range, N))
+    E_supply_prediction_list = np.zeros(N)
     """ index prediction data, now using the current data set... AI should be plugged in here eventually"""
     for i in range(prediction_range):
         for agent in agents[:]:
@@ -570,7 +577,7 @@ def prediction_base_function(R_total, big_data_file, horizon, prediction_range, 
     E_surplus_prediction_over_horizon = 0
     for agent in agents[:]:
         E_surplus_prediction_over_horizon += agent.E_prediction_agent
-
+        E_supply_prediction_list[agent.id] = agent.E_prediction_agent
     """ conversion to usable E_supply_prediction (using w_prediction_avg does nothing yet)
         Make use of agents knowledge that is shared among each others: 
         total predicted energy = sum(individual predictions)"""
@@ -588,7 +595,7 @@ def prediction_base_function(R_total, big_data_file, horizon, prediction_range, 
         means_surplus.append(np.mean(surplus_prediction[i][:]))
         means_load.append(np.mean(demand_per_step_prediction[i][:]))
 
-    return R_prediction, E_supply_prediction
+    return R_prediction, E_supply_prediction, E_supply_prediction_list, w_prediction_avg
 
 def isNaN(num):
     return num != num
