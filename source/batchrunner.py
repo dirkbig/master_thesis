@@ -31,8 +31,8 @@ community_size = None
 mode = 'normal'
 # mode = 'batchrunner'
 
-# model = 'sync'
-model = 'async'
+model = 'sync'
+# model = 'async'
 #model = 'pso'
 #model = 'pso_hierarchical'
 #model = 'pso_not_hierarchical'
@@ -46,14 +46,16 @@ model = 'async'
 
 """ init for normal mode   """
 """"""""""""""""""""""""""""""
-normal_batchrunner_N = 8
+normal_batchrunner_N = 20
 normal_batchrunner_comm_radius = 3
 
 
 """ init for batchrunner   """
 """"""""""""""""""""""""""""""
+
+""" If async is on, no higher agents than 9 (no eth.accounts.create() yet... wait for Web3.py v4.0"""
 agents_low = 6
-agents_high = 44
+agents_high = 9
 
 
 """ init for large N   """
@@ -65,7 +67,7 @@ if community_size == 'large':
 
 """ general init """
 """"""""""""""""""""
-penetration_prosumers = 1
+penetration_prosumers = 0.5
 lambda11 = 2
 lambda12 = 1
 lambda21 = 2
@@ -118,7 +120,7 @@ def run_mg(sim_steps, N, model_run_mg, args_run_mg):
 
     if model_run_mg == 'async':
         [comm_reach_run_mg, lambda_set_run_mg, parameter_sweep_dict_run_mg] = args_run_mg
-
+        number_of_lagging_agents = comm_reach_run_mg
     else:
         [lambda_set_run_mg, parameter_sweep_dict_run_mg] = args_run_mg
         comm_reach_run_mg = None
@@ -306,7 +308,7 @@ def run_mg(sim_steps, N, model_run_mg, args_run_mg):
         model_run = MicroGrid_sync(big_data_file, starting_point, N, lambda_set_run_mg)
 
     if model == 'async':
-        model_run = MicroGrid_async(big_data_file, starting_point, N, comm_reach_run_mg, lambda_set_run_mg)
+        model_run = MicroGrid_async(big_data_file, starting_point, N, number_of_lagging_agents, lambda_set_run_mg)
 
     if model == 'pso':
         model_run = MicroGrid_PSO(big_data_file, starting_point, N)
@@ -319,6 +321,9 @@ def run_mg(sim_steps, N, model_run_mg, args_run_mg):
 
     if model == 'microgrid_no_trading':
         model_run = MicroGrid_sync_not_trading(big_data_file, starting_point, N, lambda_set_run_mg)
+
+    if model != 'async':
+        number_of_lagging_agents = None
 
     """Microgrid ABM makes steps over the duration of the simulation, data collection"""
     E_consumption_list_over_time = np.zeros((N, sim_steps))
@@ -461,7 +466,7 @@ def run_mg(sim_steps, N, model_run_mg, args_run_mg):
         seller_mean = np.mean(num_seller_iteration_over_time_mod)
 
         if mode == 'batchrunner':
-            np.savez('/Users/dirkvandenbiggelaar/Desktop/result_files/Batchrun_PSO' + str(model) + '_batch' + str(N) + '_commreachis' + str(comm_reach_run_mg) + '.npz',
+            np.savez('/Users/dirkvandenbiggelaar/Desktop/result_files/Batchrun_PSO' + str(model) + '_batch' + str(N) + '_laggingagents' + str(number_of_lagging_agents) + '.npz',
                      profit_list_summed_over_time, number_of_buyers_over_time, number_of_sellers_over_time,
                      supplied_over_time_list, E_demand_over_time,
                      c_nominal_over_time, deficit_total_over_time, deficit_total_progress_over_time,
@@ -477,7 +482,7 @@ def run_mg(sim_steps, N, model_run_mg, args_run_mg):
                      big_data_file, sim_steps, R_real_over_time, production_series_total, deficit_total_progress_over_time, N, number_prosumers)
 
         if mode == 'normal':
-            np.savez('/Users/dirkvandenbiggelaar/Desktop/result_files/' + str(model) + '_' + str(N) + '_commreachis' + str(comm_reach_run_mg) + '.npz',
+            np.savez('/Users/dirkvandenbiggelaar/Desktop/result_files/' + str(model) + '_' + str(N) + '_laggingagents' + str(number_of_lagging_agents) + '.npz',
                      profit_list_summed_over_time, number_of_buyers_over_time, number_of_sellers_over_time,
                      supplied_over_time_list, E_demand_over_time,
                      c_nominal_over_time, deficit_total_over_time, deficit_total_progress_over_time,
@@ -725,13 +730,13 @@ if mode == 'batchrunner':
             """ adaptive communication topology (depending on size of grid)"""
             for comm_reach in range(comm_radius_low, comm_radius_high):
                 args = [comm_reach, lambda_set, parameter_sweep_dict]
-                global_mean, buyer_mean, seller_mean = run_mg(sim_steps, num_agents, model, args)
+                global_mean, buyer_mean, seller_mean, length_sim = run_mg(sim_steps, num_agents, model, args)
         elif model == 'pso':
             comm_reach = None
-            run_mg(sim_steps, num_agents, model, args)
+            global_mean, buyer_mean, seller_mean, length_sim = run_mg(sim_steps, num_agents, model, args)
         elif model == 'pso_hierarchical':
             comm_reach = None
-            run_mg(sim_steps, num_agents, model, args)
+            global_mean, buyer_mean, seller_mean, length_sim = run_mg(sim_steps, num_agents, model, args)
 
         list_mean_iterations_batch[num_agents - agents_low][:] = [global_mean, buyer_mean, seller_mean]
 

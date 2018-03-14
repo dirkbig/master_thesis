@@ -1,13 +1,15 @@
-import matplotlib.pyplot as plt
 
 import seaborn as sns
 sns.set()
 import numpy as np
 from source.function_file import *
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
 
-
-
+""" kleur TU-DELFT bies: 00A6D6"""
+sns.set()
 
 
 fig_utilities = plt.figure(figsize=(10,2))
@@ -27,7 +29,7 @@ lambda_set = [lambda11, lambda12, lambda21, lambda22]
 
 E_i_demand = 20
 E_total_supply = 20
-E_total_supply_malicious = 10
+E_total_supply_malicious = 8
 
 c_i_bidding_price = 10
 c_bidding_prices_others = 30
@@ -76,25 +78,32 @@ ax_i.axhline(min_i, color='k', linestyle='--', alpha=0.3)
 ax_i.axvline(position_min_i, color='k', linestyle='--', alpha=0.3)
 
 
-ax3.plot(c_i_range,utility_costs_plot, label='utility costs')
-ax3.plot(c_i_range,utility_demand_gap_plot, label='utility demand gap')
-ax3.plot(c_i_range,utility_i_plot, label='total utility')
+ax3.plot(c_i_range,utility_costs_plot, label='costs')
+ax3.plot(c_i_range,utility_demand_gap_plot, label='demand-gap')
+ax3.plot(c_i_range,utility_i_plot, label='total')
 ax3.axhline(min_i, color='k', linestyle='--', alpha=0.3)
 ax3.axvline(position_min_i, color='k', linestyle='--', alpha=0.3)
 
 
-ax4_m.plot(c_i_range,utility_costs_plot_m, label='utility costs')
-ax4_m.plot(c_i_range,utility_demand_gap_plot_m, label='utility demand gap')
-ax4_m.plot(c_i_range,utility_i_plot_m, label='total utility')
+ax4_m.plot(c_i_range,utility_costs_plot_m, label='costs')
+ax4_m.plot(c_i_range,utility_demand_gap_plot_m, label='demand-gap')
+ax4_m.plot(c_i_range,utility_i_plot_m, label='total')
 ax4_m.axhline(min_i_m, color='k', linestyle='--', alpha=0.3)
 ax4_m.axvline(position_min_i_m, color='k', linestyle='--', alpha=0.3)
 
-plt.xlabel('c_i', fontsize=10)
-plt.ylabel('Utility i', fontsize=10)
-""" Add vertical line"""
 
-plt.legend()
+# ax3.set_ylim([0, 15])
+ax3.set_xlim([0, 20])
+ax3.set_ylim([0, 400])
+ax4_m.set_xlim([0, 20])
+ax4_m.set_ylim([0, 400])
 
+
+
+ax3.set_xlabel('bidding price', fontsize=10)
+ax3.set_ylabel('Utility i', fontsize=10)
+ax4_m.set_xlabel('bidding price', fontsize=10)
+ax4_m.set_ylabel('Utility i', fontsize=10)
 
 
 """PLOT: utility sellers"""
@@ -103,7 +112,7 @@ id_seller = 1
 E_j_seller = 20
 R_direct = 1
 E_supply_others = 100
-R_prediction = 1.2
+R_prediction = 3.5
 E_supply_prediction = 150
 E_j_prediction_seller = 10
 w_j_range = np.linspace(0,1,100)
@@ -112,8 +121,8 @@ utility_direct_plot = np.zeros(len(w_j_range))
 utility_predicted_plot = np.zeros(len(w_j_range))
 utility_j_plot = np.zeros(len(w_j_range))
 
-lambda21 = 1.5
-lambda22 = 1.3
+lambda21 = 2
+lambda22 = 2
 
 lambda_set = [lambda11, lambda12, lambda21, lambda22]
 
@@ -131,22 +140,30 @@ for i in range(len(utility_j_plot)):
     if utility_j_plot[i] == min_j:
         position_min_j = w_j_range[i]
 
-ax_j.plot(w_j_range,utility_direct_plot, label='utility_direct_plot')
-ax_j.plot(w_j_range,utility_predicted_plot, label='utility_predicted_plot')
-ax_j.plot(w_j_range,utility_j_plot, label='utility_j_plot')
+ax_j.plot(w_j_range,utility_direct_plot, label='direct')
+ax_j.plot(w_j_range,utility_predicted_plot, label='predicted')
+ax_j.plot(w_j_range,utility_j_plot, label='total')
 ax_j.axhline(min_j, color='k', linestyle='--', alpha=0.3)
 ax_j.axvline(position_min_j, color='k', linestyle='--', alpha=0.3)
 
-plt.xlabel('w_j', fontsize=10)
-plt.ylabel('Utility j', fontsize=10)
+ax_i.set_xlabel('bdding price', fontsize=10)
+ax_i.set_ylabel('Utility i', fontsize=10)
+ax_j.set_xlabel('sharing factor', fontsize=10)
+ax_j.set_ylabel('Utility j', fontsize=10)
+
+
+
+
 """ Add vertical line"""
+ax_j.legend(loc='lower right', bbox_to_anchor=(1, 1), ncol=3, fontsize=9)
+ax_i.legend(loc='lower right', bbox_to_anchor=(1, 1), ncol=3, fontsize=9)
+ax3.legend(loc='lower right', bbox_to_anchor=(1, 1), ncol=3, fontsize=9)
+ax4_m.legend(loc='lower right', bbox_to_anchor=(1, 1), ncol=3, fontsize=9)
 
-plt.legend()
 
-fig_utilities.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_utilities.pdf',bbox_inches='tight')
-fig_buyer_malicious_info.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_buyer_malicious_info.pdf',bbox_inches='tight')
+fig_utilities.savefig('/Users/dirkvandenbiggelaar/Desktop/used_plots/fig_utilities_functions.png',bbox_inches='tight')
+fig_buyer_malicious_info.savefig('/Users/dirkvandenbiggelaar/Desktop/used_plots/fig_buyer_malicious_info.png',bbox_inches='tight')
 
-plt.show()
 
 
 

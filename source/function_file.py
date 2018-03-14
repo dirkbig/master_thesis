@@ -8,8 +8,8 @@ import numpy as np
 from scipy.optimize import minimize
 
 
-""""""""""""""""""""""""""
-""" PREDICTION ON/OFF  """
+# """"""""""""""""""""""""""
+# """ PREDICTION ON/OFF  """
 """"""""""""""""""""""""""
 #prediction = 'off'
 prediction = 'on'
@@ -123,31 +123,47 @@ def calc_R_j_revenue(R_total, E_j_supply, w_j_storage_factor, E_total_supply):
     return R_j
 
 
-def get_preferred_soc(soc_preferred, battery_capacity, E_prediction_series, soc_actual, horizon_length):
+def get_preferred_soc(soc_preferred, battery_capacity, E_prediction_series, soc_actual, horizon_length, predicted_E_consumption_list):
     """determines the preferred state of charge for given agent/battery """
 
-    future_availability = 0
+    agent = 'prosumer'
+    future_load = 0
+    future_surplus = 0
     for i in range(horizon_length):
-        if E_prediction_series[i] < 0.001:
-            E_prediction_series[i] = 0.001
+        if E_prediction_series[i] < 0.0001:
+            E_prediction_series[i] = 0.0001
+        future_load += predicted_E_consumption_list[i]
+        future_surplus += E_prediction_series[i]
 
-        future_availability += E_prediction_series[i]
+    if np.all(E_prediction_series <= 0.01):
+        """ this agent can be considered a consumer and not a producer at this stage"""
+        agent = 'consumer'
 
-    """ A.I. future work: horizon_length is exploration reinforcement learning; what is the optimal horizon such that the battery is never fully
-        depleted, but is used the most extensive possible for maximising profit. 
-        Depleted battery is a punishment / pushing it right to the edge is a reward """
 
-    max_E_predicted = max(E_prediction_series[0:horizon_length])
-    average_predicted_E_surplus = future_availability/horizon_length
+    if agent == 'prosumer':
+        """ A.I. future work: horizon_length is exploration reinforcement learning; what is the optimal horizon such that the battery is never fully
+            depleted, but is used the most extensive possible for maximising profit. 
+            Depleted battery is a punishment / pushing it right to the edge is a reward """
+        # max_E_predicted = max(E_prediction_series[0:horizon_length])
+        average_predicted_E_surplus = future_surplus/horizon_length
 
-    """E_prediction_current is now subject to heavy changes, might there be a spike in E_prediction_current, then there is a 
-        corresponding spike in soc_preferred, thus maybe make E_prediction_current an average to make it more robust"""
-    E_prediction_current = E_prediction_series[0]
+        """E_prediction_current is now subject to heavy changes, might there be a spike in E_prediction_current, then there is a 
+            corresponding spike in soc_preferred, thus maybe make E_prediction_current an average to make it more robust"""
+        E_prediction_current = E_prediction_series[0]
 
-    """ Only considering E_predicted and no actual E_demand of the user: only measure abundancy of the resource, not the actual 
-    need of the good..."""
-    weight_preferred_soc = 0.5**(average_predicted_E_surplus/E_prediction_current)**0.3
-    soc_preferred = battery_capacity * weight_preferred_soc
+        """ Only considering E_predicted and no actual E_demand of the user: only measure abundancy of the resource, not the actual 
+        need of the good..."""
+        weight_preferred_soc = 0.5**(average_predicted_E_surplus/E_prediction_current)**0.3
+        soc_preferred = battery_capacity * weight_preferred_soc
+
+    elif agent == 'consumer':
+        """ strategy for (temporary) consumers """
+        E_consumption_current = predicted_E_consumption_list[0]
+        average_consumption_over_horizon = future_load/horizon_length
+        weight_preferred_soc_consumer = 0.5**(average_consumption_over_horizon/E_consumption_current)**0.3
+
+        soc_preferred = battery_capacity * weight_preferred_soc_consumer
+
 
     """ load shedding """
     if soc_actual > 0.8 * battery_capacity:
@@ -205,7 +221,6 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
     lambda11 = lambda_set[0]
     lambda12 = lambda_set[1]
 
-
     """ Actuator saturation on charging """
     if constraints == 'on':
         cons_sat = {'type': 'ineq',
@@ -246,7 +261,6 @@ def calc_utility_function_i(E_i_demand, E_total_supply, c_i_bidding_price, c_bid
 def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lower_bound_on_w_j, lambda_set, actuator_saturation_ESS_discharge):
     """ Anticipation on buyers is plugged in here"""
 
-
     """ This is a MAXIMIZATION of revenue"""
     def utility_seller(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt, E_j_p_opt, lambda21, lambda22):
 
@@ -281,12 +295,9 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
     return sol_seller, sol_seller.x[0], utility_seller(sol_seller.x[0], R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22)
 
 
-
-
-
 def sellers_game_optimization_no_prediction(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lower_bound_on_w_j, lambda_set, actuator_saturation_ESS_discharge):
     """ Anticipation on buyers is plugged in here"""
-
+    factor_revenue = 0.4
 
     def utility_seller_no_prediction(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt, E_j_p_opt, lambda21, lambda22):
         """ Utility function seller without prediction decision"""
@@ -445,6 +456,7 @@ def calc_R_prediction_masked(R_total, big_data_file, horizon, agents, comm_reach
 
     return R_prediction, alpha, beta
 
+
 def calc_c_prediction():
     c_prediction = 0.5
     return c_prediction
@@ -475,15 +487,13 @@ def calc_E_surplus_prediction(E_prediction_step, horizon, N, prediction_range, s
 
 
 def calc_w_prediction():
-    w_prediction = 0.5
+    w_prediction = 0.8 #sine_constant + 0.7 * np.sin(np.pi * f * i / Fs + 0.25 * np.pi)
     return w_prediction
 
 
 def calc_wj(E_demand, E_horizon):
     w_j_storage = (E_demand**2/sum(E_horizon**2))
     return w_j_storage
-
-
 
 
 """GRID DYNAMICS"""
@@ -537,13 +547,13 @@ def utility_j_validation(E_j_opt, gamma_j_opt, R_j_opt, w_j_val):
 
 
 
-
 def prediction_base_function(R_total, big_data_file, horizon, prediction_range, agents, N, steps):
     """ Prediction base function"""
 
     """ surplus_prediction/demand_per_step_prediction gives predicted surplus/demand; per step, per agent"""
     surplus_prediction = np.zeros((prediction_range, N))
     demand_per_step_prediction = np.zeros((prediction_range, N))
+    E_surplus_prediction_list = np.zeros(N)
     E_supply_prediction_list = np.zeros(N)
     """ index prediction data, now using the current data set... AI should be plugged in here eventually"""
     for i in range(prediction_range):
@@ -577,16 +587,17 @@ def prediction_base_function(R_total, big_data_file, horizon, prediction_range, 
     E_surplus_prediction_over_horizon = 0
     for agent in agents[:]:
         E_surplus_prediction_over_horizon += agent.E_prediction_agent
-        E_supply_prediction_list[agent.id] = agent.E_prediction_agent
+        E_surplus_prediction_list[agent.id] = agent.E_prediction_agent
     """ conversion to usable E_supply_prediction (using w_prediction_avg does nothing yet)
         Make use of agents knowledge that is shared among each others: 
         total predicted energy = sum(individual predictions)"""
     w_prediction_avg = 0
     for agent in agents[:]:
         w_prediction_avg += agent.w_prediction / N
+        E_supply_prediction_list[agent.id] = E_surplus_prediction_list[agent.id] * agent.w_prediction
 
     E_supply_prediction = E_surplus_prediction_over_horizon * w_prediction_avg
-
+    E_supply_prediction_list = E_surplus_prediction_list * w_prediction_avg
     """ analysis of prediction data """
     means_surplus = []
     means_load = []

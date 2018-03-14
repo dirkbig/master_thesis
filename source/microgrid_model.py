@@ -28,8 +28,8 @@ blockchain = 'off'
 """ TRADING ON/NO-PREDICTION/SUPPLY-ALL  """
 """"""""""""""""""""""""""""""""""""""""""""
 
-# prediction = 'on'
-prediction = 'off'
+prediction = 'on'
+# prediction = 'off'
 
 
 
@@ -38,7 +38,7 @@ prediction = 'off'
 """ INIT   """
 """"""""""""""
 starting_point = 0
-stopping_point = 7200 - starting_point - 200
+stopping_point = 7200 - starting_point - 100
 step_day = 1440
 days = 5
 
@@ -99,9 +99,10 @@ class HouseholdAgent(Agent):
 
         """prediction"""
         self.current_step = 0
-        self.max_horizon =  1440
+        self.max_horizon =  700
         self.horizon_agent = min(self.max_horizon, sim_steps - self.current_step)  # including current step
         self.predicted_E_surplus_list = np.zeros(self.horizon_agent)
+        self.predicted_E_consumption_list = np.zeros(self.horizon_agent)
         self.w_j_prediction = 0.5
         """Battery related"""
         self.soc_actual = 0 #self.battery_capacity_n
@@ -154,19 +155,24 @@ class HouseholdAgent(Agent):
         self.E_j_returned_supply = 0
 
         """real time data"""
-        self.consumption   = big_data_file_per_step[self.id, 0]           # import load file
-        self.pv_generation = big_data_file_per_step[self.id, 1]           # import generation file
+        self.consumption   = big_data_file_per_step[self.id][0]           # import load file
+        self.pv_generation = big_data_file_per_step[self.id][1]           # import generation file
 
         """ agents personal prediction, can be different per agent (difference in prediction quality?)"""
         self.horizon_agent = min(self.max_horizon, sim_steps - self.current_step - 1)  # including current step
         self.predicted_E_surplus_list = np.zeros(self.horizon_agent)
+        self.predicted_E_consumption_list = np.zeros(self.horizon_agent)
 
+        """ Prediction of personal surplys"""
         for i in range(self.horizon_agent):
             self.predicted_E_surplus_list[i] = big_data_file[steps + i][self.id][0] \
-                                               - big_data_file[steps + i][self.id][1]  # load - production
+                                               - big_data_file[steps + i][self.id][1]
+
+            self.predicted_E_consumption_list[i] = big_data_file[steps + i][self.id][0]
             if self.predicted_E_surplus_list[i] < 0:
                 self.predicted_E_surplus_list[i] = 0
 
+        """ get an arbitrary prediction on w"""
         self.w_prediction = calc_w_prediction() # has to go to agent
         self.E_prediction_agent = calc_E_surplus_prediction(self.predicted_E_surplus_list,
                                                             self.horizon_agent, N, prediction_range, steps) # from surplus
@@ -178,7 +184,7 @@ class HouseholdAgent(Agent):
         battery_horizon = self.horizon_agent  # including current step
 
         self.soc_preferred = get_preferred_soc(self.soc_preferred, self.battery_capacity_n,
-                                               self.predicted_E_surplus_list, self.soc_actual, battery_horizon)
+                                               self.predicted_E_surplus_list, self.soc_actual, battery_horizon, self.predicted_E_consumption_list)
         self.soc_gap = self.soc_preferred - self.soc_actual
         self.soc_surplus = 0
         if self.soc_gap < 0:
@@ -369,6 +375,7 @@ class MicroGrid_sync(Model):
         if self.prediction_range <= 0:
             self.prediction_range = 1
 
+        self.E_supply_prediction_list = np.zeros(N)
         self.E_total_surplus_prediction_per_step = np.zeros(self.prediction_range)
         self.utilities_sellers = np.zeros((N, 3))
         self.utilities_buyers = np.zeros((N, 4))
@@ -501,7 +508,8 @@ class MicroGrid_sync(Model):
         self.R_prediction = 0
 
         """ Prediction function"""
-        self.R_prediction, self.E_supply_prediction, self.E_supply_prediction_list = prediction_base_function(self.R_total,
+        self.R_prediction, self.E_supply_prediction, self.E_supply_prediction_list, w_prediction_avg \
+                                                                             = prediction_base_function(self.R_total,
                                                                                self.big_data_file,
                                                                                horizon,
                                                                                self.prediction_range,

@@ -42,13 +42,12 @@ stopping_point = 7200 - starting_point - 200
 step_day = 1440
 days = 5
 
-step_time =  100
+step_time =  200
 total_steps = step_day*days
 sim_steps = int(total_steps/step_time)
 
 average_consumption_household = 4000/365 #kWh/day
 average_production_solarpanel = 15
-comm_radius = 10
 
 step_list = np.zeros([sim_steps])
 
@@ -67,7 +66,7 @@ e_supply = 0.1
 class HouseholdAgent(Agent):
 
     """All microgrid household(agents) should be generated here; initialisation of prosumer tools """
-    def __init__(self, unique_id, model, w3, addr, agents_set, N, comm_radius):
+    def __init__(self, unique_id, model, w3, addr, agents_set, N, number_of_lagging_agents):
         super().__init__(unique_id, model)
 
         """agent characteristics"""
@@ -150,12 +149,7 @@ class HouseholdAgent(Agent):
 
         """ Asynchronous """
         self.latency_list = np.ones(N)
-
-        """ Agent 4 is lagging and thus left out """
-        if self.id == 3:
-            self.lag = 1
-        else:
-            self.lag = 0
+        self.lag = 0
 
 
     def step(self, big_data_file_per_step, big_data_file, E_total_surplus_prediction_per_step, horizon, prediction_range, steps, w3, contract_instance, agents_set, N):           # big_data_file = np.zeros((N, step_time, 3))
@@ -343,7 +337,7 @@ class MicroGrid_async(Model):
 
     """create environment in which agents can operate"""
 
-    def __init__(self, big_data_file, starting_point, N, comm_radius, lambda_set):
+    def __init__(self, big_data_file, starting_point, N, number_of_lagging_agents, lambda_set):
 
         """Initialization and automatic creation of agents"""
 
@@ -419,7 +413,7 @@ class MicroGrid_async(Model):
         """create a set of N agents with activations schedule and e = unique id"""
         for i in range(self.num_households):
             addr = i + 1
-            agent = HouseholdAgent(i, self, self.w3, addr, self.agents, N, comm_radius)
+            agent = HouseholdAgent(i, self, self.w3, addr, self.agents, N, number_of_lagging_agents)
             self.agents.append(agent)
 
 
@@ -446,18 +440,31 @@ class MicroGrid_async(Model):
         self.revenue_list = np.zeros(N)
         self.payment_list = np.zeros(N)
 
+
+        self.number_of_lagging_agents = number_of_lagging_agents
+
     def step(self, N, lambda_set):
         """Environment proceeds a step after all agents took a step"""
         print("Step =", self.steps)
 
         """ lagging agents """
-        # """ Agent 3 is lagging and thus left out after a certain time"""
-        # if self.id == 3 and 100 < self.steps < 300:
-        #     self.lag = 1
-        # else:
-        #     self.lag = 0
 
+        # self.agents[3].lag = random.randint(0,1)
 
+        # lagging_agents = 0
+        # while lagging_agents <= int(N/2):
+        #     for agent in self.agents[:]:
+        #         random_number = random.randint(0,10)
+        #         if random_number > 9:
+        #             agent.lag = 1
+        #             lagging_agents += 1
+
+        """ Agent 3 is lagging and thus left out after a certain time"""
+        self.number_of_lagging_agents
+
+        if 300 < self.steps <  400:
+            for i in range(int(self.number_of_lagging_agents)):
+                self.agents[3 + i].lag = 1
 
 
 
@@ -610,23 +617,13 @@ class MicroGrid_async(Model):
                             Agents know through time-stamps on smart-contract which other agents have lag
                             Then agent decides to kick lagging agent out of optimization"""
 
-                        """ mask out the lagging agent by checking time-stamps """
-                        """ Build masks for asynchronous network or topology, build optimization information 
+                        """ mask out the lagging agent by checking time-stamps
+                            Build masks for asynchronous network or topology, build optimization information 
                             from only non-lagging agent information. """
-                        # agent.E_total_supply_list_masked[i] = np.zeros(len(agent.id_non_lagging_agents))
-                        # agent.c_bidding_prices_masked[i] = np.zeros(len(agent.id_non_lagging_agents))
-                        #
-                        # for i in range(len(agent.id_non_lagging_agents)):
-                        #     agent.E_total_supply_list_masked[i] = self.E_total_supply_list[agent.id_non_lagging_agents[i]]
-                        #     agent.c_bidding_prices_masked[i] = self.c_bidding_prices[agent.id_non_lagging_agents[i]]
-                        #
-                        # masked_E_total_supply = sum(agent.E_total_supply_list_masked)
-                        # masked_c_bidding_price_others = bidding_prices_others(agent.c_bidding_prices_masked, agent.c_i_bidding_price)
-
                         masked_E_total_supply = self.E_total_supply_list[agent.id_non_lagging_agents].sum()
                         masked_c_bidding_price_others = self.c_bidding_prices[agent.id_non_lagging_agents].sum()
 
-                        # print(agent.id_non_lagging_agents)
+                        print(agent.id_non_lagging_agents)
                         """preparation for update"""
                         prev_bid = agent.c_i_bidding_price
                         self.E_total_supply = sum(self.E_total_supply_list)
