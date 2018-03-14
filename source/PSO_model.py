@@ -26,8 +26,13 @@ class HouseholdAgent_PSO(Agent):
         self.gen_output_max = 0
 
         self.battery_soc = 300
-        self.battery_ramp = 10
-        self.battery_max = self.battery_soc
+
+
+        self.battery_capacity_n = 15
+        self.battery_ramp = 1
+        self.soc_actual = 0.5 * self.battery_capacity_n
+        self.battery_max = self.battery_capacity_n
+
         self.battery_min = 0
         self.gen_battery = 0
 
@@ -42,6 +47,8 @@ class HouseholdAgent_PSO(Agent):
         self.power_surplus_i = 0
 
         self.P_prev = 0
+
+        self.soc_influx = 0
 
     def __repr__(self):
         return "ID: %d, pvgeneration:%d, consumption:%d" % (self.id, self.gen_output, self.load_demand)
@@ -86,22 +93,24 @@ class MicroGrid_PSO(Model):
         self.gen_output_list = np.zeros(N)
         self.load_demand_list = np.zeros(N)
         self.P_optimized_list = np.zeros(N)
-        self.battery_soc_list = np.zeros(N)
+        self.big_data_file = big_data_file
+        self.soc_actual_list = np.zeros(N)
 
-    def pso_step(self, big_data_file, N):
+    def step(self, N, lambda_set):
         print('step ',self.steps)
 
+        lambda_set_notused = lambda_set
         """ update values from data """
         for agent in self.agents[:]:
-            agent.battery_max = agent.battery_soc
-            agent.load_demand = big_data_file[self.steps][agent.id][0] #3*np.random.random_sample()
-            agent.gen_output = big_data_file[self.steps][agent.id][1] #3*np.random.random_sample() + 2
+            agent.battery_max = agent.battery_capacity_n
+            agent.load_demand = self.big_data_file[self.steps][agent.id][0] #3*np.random.random_sample()
+            agent.gen_output = self.big_data_file[self.steps][agent.id][1] #3*np.random.random_sample() + 2
             self.load_demand_list[agent.id] = agent.load_demand
             self.gen_output_list[agent.id] = agent.gen_output
 
             agent.gen_output_max = agent.gen_output
             agent.constraint_min = 0
-            agent.constraint_max = 0.01 + min(agent.gen_output_max + agent.battery_ramp, agent.gen_output_max + max(agent.battery_soc, 0))
+            agent.constraint_max = 0.01 + min(agent.gen_output_max + agent.battery_ramp, agent.gen_output_max + max(agent.battery_capacity_n, 0))
             self.P_supply_list[agent.id] = agent.constraint_max
             self.P_demand_list[agent.id] = agent.load_demand
 
@@ -223,8 +232,7 @@ class MicroGrid_PSO(Model):
             ub[agent.id] = agent.constraint_max  # + agent.battery_ramp
 
 
-
-        x_opt, f_opt = pso(costfunction, lb, ub, ieqcons=[constraints], args=args, swarmsize = 1000, omega = 0.9, phip = 0.6, phig = 0.6, maxiter = 1000, minstep=1e-1, minfunc=1e-1) #
+        x_opt, f_opt = pso(costfunction, lb, ub, ieqcons=[constraints], args=args, swarmsize = 2000, omega = 0.9, phip = 0.6, phig = 0.6, maxiter = 1000, minstep=1e-0, minfunc=1e-0) #
         results = x_opt
 
         """ run pyswarm PSO"""
@@ -249,14 +257,27 @@ class MicroGrid_PSO(Model):
         print(results)
 
         for agent in self.agents[:]:
+            agent.soc_influx = 0
+            agent.deficit = 0
             self.P_optimized_list[agent.id] = results[agent.id]
-            agent.battery_soc += - x_opt[agent.id] + agent.gen_output - agent.load_demand
             agent.P_prev = results[agent.id]
-            self.battery_soc_list[agent.id] = agent.battery_soc
+
+            agent.soc_influx = - x_opt[agent.id] + agent.gen_output - agent.load_demand
+            if agent.soc_actual + agent.soc_influx < 0:
+                """ battery will deplete """
+                agent.deficit = abs(agent.soc_actual + agent.soc_influx)
+                agent.soc_influx = agent.E_i_demand + agent.deficit
+            if agent.battery_capacity_n + agent.soc_influx > agent.battery_capacity_n:
+                """ battery will overflow """
+                real_influx = agent.soc_influx
+                agent.soc_influx = agent.battery_capacity_n - agent.soc_actual
+                agent.batt_overflow = real_influx - agent.soc_influx
+            self.soc_actual_list[agent] = agent.soc_actual
+
         self.steps += 1
         self.time += 1
 
-        return results, self.P_supply_list, self.P_demand_list, self.gen_output_list, self.load_demand_list, self.battery_soc_list
+        return results, self.P_supply_list, self.P_demand_list, self.gen_output_list, self.load_demand_list, self.soc_actual_list
 
 
 class DataAgent_PSO(Agent):

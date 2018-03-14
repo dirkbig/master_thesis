@@ -4,6 +4,11 @@ import numpy as np
 import seaborn as sns
 sns.set()
 
+fig_width = (13,6)
+figsize_single = (13,2.5)
+figsize_double = (13,6)
+
+days = 5
 """ kleur TU-DELFT bies: 00A6D6"""
 c=sns.color_palette()[0]
 FIG_width = (18,6)
@@ -19,18 +24,22 @@ def thesis_iteration_plot(list_mean_iterations_batch, num_batches, num_agents, a
         iter_buyer[i] = list_mean_iterations_batch[i][1]
         iter_seller[i] = list_mean_iterations_batch[i][2]
 
-    fig_thesis_iteration = plt.figure(figsize=(FIG_width))
-    plt.tight_layout(w_pad=0.2, h_pad=0.4)
-    iterations = fig_thesis_iteration.add_subplot(111)
+    fig_iterations_batch = plt.figure(figsize=(figsize_single))
 
+    plt.tight_layout(w_pad=0.2, h_pad=0.4)
+    iterations = fig_iterations_batch.add_subplot(111)
+
+    max_iter_global = max(iter_global)
 
     iterations.bar(x, iter_global, width= 0.3, align='edge', label='global')
     iterations.bar(x, iter_buyer, width= -0.3, align='edge', label='buyers-round')
     iterations.bar(x, iter_seller, width= 0.3, align='center', label='sellers-round')
 
+    iterations.set_xlim([5, 44])
+
     plt.legend(loc='lower right', bbox_to_anchor=(1, 2), ncol=3)
 
-    plt.show()
+    fig_iterations_batch.savefig('/Users/dirkvandenbiggelaar/Desktop/used_plots/fig_iterations_batch.png', bbox_inches='tight')
 
 def thesis_control_values_plot(c_nominal_over_time_batch, w_nominal_over_time_batch, num_batches):
 
@@ -42,6 +51,7 @@ def thesis_control_values_plot(c_nominal_over_time_batch, w_nominal_over_time_ba
             c.plot(c_nominal_over_time_batch[batch],'k-' , alpha=batch/(1.4*num_batches))
             w.plot(w_nominal_over_time_batch[batch],'k-', alpha=batch/(1.4*num_batches))
 
+    fig_thesis_control_values.savefig('/Users/dirkvandenbiggelaar/Desktop/used_plots/fig_thesis_control_values.png', bbox_inches='tight')
 
 
 def thesis_supply_demand_batch_plot(E_total_supply_list_over_time_mean, w_nominal_over_time_batch, num_batches):
@@ -55,8 +65,7 @@ def thesis_supply_demand_batch_plot(E_total_supply_list_over_time_mean, w_nomina
 
     supply.plot(w_nominal_over_time_batch[batch], 'k-')
 
-
-    plt.show()
+    fig_thesis_supply_demand_batch.savefig('/Users/dirkvandenbiggelaar/Desktop/used_plots/fig_thesis_supply_demand_batch.png', bbox_inches='tight')
 
 def thesis_soc_batch_plot(actual_batteries_list_over_time_batch, socs_preferred_over_time_batch, E_actual_supplied_total_batch, num_batches, agents_low, num_steps):
     actual_batteries_over_time_mean = np.zeros((num_batches, num_steps))
@@ -95,3 +104,5 @@ def thesis_soc_batch_plot(actual_batteries_list_over_time_batch, socs_preferred_
 
         batch_row += N
         N += + 1
+
+        fig_thesis_soc_batch_plot.savefig('/Users/dirkvandenbiggelaar/Desktop/used_plots/fig_thesis_soc_batch_plot.png', bbox_inches='tight')

@@ -2,15 +2,17 @@ import numpy as np
 from source.plots_batchrunner import *
 container = []
 
-batch_id = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata_test/batch_id.npy')
+batch_id = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/Batchrun_EBZ/Batchrun_EBZsync_batch/batch_id.npy')
 agents_low, agents_high, length_sim = batch_id
 num_steps = length_sim
 range_agents = agents_high - agents_low
 num_batches = len(range(agents_low, agents_high))
 comm_reach = None
 
+
+list_mean_iterations_batch = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/Batchrun_EBZ/Batchrun_EBZsync_batch/list_mean_iterations_batch.npy')
 for N in range(agents_low, agents_high):
-    batchdata_zip = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata_analyser/batch_data_Nis' + str(N) + '_commreachis' + str(comm_reach) + '.npz')
+    batchdata_zip = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/Batchrun_EBZ/Batchrun_EBZsync_batch/Batchrun_EBZsync_batch' + str(N) + '_commreachis' + str(comm_reach) + '.npz')
     batchdata = dict(zip(('profit_list_summed_over_time',
                       'number_of_buyers_over_time',
                       'number_of_sellers_over_time',
@@ -55,8 +57,10 @@ for N in range(agents_low, agents_high):
                       'number_of_agents', 'number_prosumers'), (batchdata_zip[batch] for batch in batchdata_zip)))
     container = np.append(container, batchdata)
 
-num_batches = agents_high - agents_low
 
+print('BATCH ANALYSER: DATA LOADED')
+
+num_batches = agents_high - agents_low
 num_buyer_iteration_over_time_batch = np.zeros((num_batches, num_steps))
 num_global_iteration_over_time_batch = np.zeros((num_batches, num_steps))
 num_seller_iteration_over_time_batch = np.zeros((num_batches, num_steps))
@@ -159,9 +163,9 @@ for batch in range(num_batches):
     N += + 1
 
 
+print('BATCH ANALYSER: DATA PROCESSED')
 
 
-list_mean_iterations_batch = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata_test/list_mean_iterations_batch.npy')
 thesis_supply_demand_batch_plot(E_total_supply_list_over_time_mean, w_nominal_over_time_batch, num_batches)
 thesis_iteration_plot(list_mean_iterations_batch, num_batches, range_agents, agents_low, agents_high)
 thesis_control_values_plot(c_nominal_over_time_batch, w_nominal_over_time_batch, num_batches)

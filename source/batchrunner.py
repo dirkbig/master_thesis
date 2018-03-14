@@ -46,13 +46,13 @@ model = 'sync'
 
 """ init for normal mode   """
 """"""""""""""""""""""""""""""
-normal_batchrunner_N = 14
+normal_batchrunner_N = 20
 normal_batchrunner_comm_radius = 3
 
 
 """ init for batchrunner   """
 """"""""""""""""""""""""""""""
-agents_low = 23
+agents_low = 6
 agents_high = 44
 
 
@@ -69,7 +69,7 @@ penetration_prosumers = 0.5
 lambda11 = 2
 lambda12 = 1
 lambda21 = 2.2
-lambda22 = 2
+lambda22 = 1.9
 lambda_set = [lambda11, lambda12, lambda21, lambda22]
 
 range_parameter_sweep = 10
@@ -86,8 +86,8 @@ parameter_sweep_dict = {'max_horizon': np.arange(horizon_low, horizon_high, rang
 """"""""""""""
 """ Plots  """
 """"""""""""""
-plots = 'on'
-# plots = 'off'
+#plots = 'on'
+plots = 'off'
 
 """"""""""""""""""""""""
 """ START            """
@@ -257,12 +257,13 @@ def run_mg(sim_steps, N, model_run_mg, args_run_mg):
 
     factor =  total_load / total_production
     number_of_prosumers = np.count_nonzero(agent_char_prod)
-    avg_production_week = total_production / number_of_prosumers
-    avg_production_year = avg_production_week * 52
-    avg_consumption_year = total_load/N *52
+    avg_production_sim = total_production / number_of_prosumers
+    avg_consumption_sim = total_load/N
+    avg_production_day = avg_production_sim / 5
+    avg_consumption_day = avg_consumption_sim / 5
 
-    print('average production of 1 prosumer yearly:', avg_production_year)
-    print('average consumption of 1 consumer yearly:', avg_consumption_year)
+    print('average production of 1 prosumer yearly:', avg_production_day)
+    print('average consumption of 1 consumer yearly:', avg_consumption_day)
 
     if community_size == 'large':
         """ extend number of agents to 100 """
@@ -271,8 +272,16 @@ def run_mg(sim_steps, N, model_run_mg, args_run_mg):
 
     for step in range(sim_steps):
         for agent in range(N):
-            big_data_file[step][agent][0] = load_file_agents_time[agent][step]**0.5 * sine_wave_consumption_series[step]*agent_char_load[agent]
-            big_data_file[step][agent][1] = production_file_agents_time[agent][step] * agent_char_prod[agent] * factor * 0.95
+            big_data_file[step][agent][0] = load_file_agents_time[agent][step]**0.5 * sine_wave_consumption_series[step]*agent_char_load[agent] /1
+            big_data_file[step][agent][1] = production_file_agents_time[agent][step] * agent_char_prod[agent] * factor * 0.95 /1
+            """ give a disturbance in load/generation """
+            """ distrubance of generation on a cloudy day: does prediction work???"""
+            if step > 300 and step < 450:
+                big_data_file[step][agent][1] = 0
+
+
+
+
 
     if community_size == 'large':
         for agent in range(N, N_large):
@@ -282,14 +291,11 @@ def run_mg(sim_steps, N, model_run_mg, args_run_mg):
             for step in range(sim_steps):
                 big_data_file[step][agent][0] = big_data_file[step][agent_copy][0] * load_factor
                 big_data_file[step][agent][1] = big_data_file[step][agent_copy][1] * gen_factor
+
     if community_size == 'large':
         N = N_large
         print('COMMUNITY SIZE: %d' % N)
 
-        """ give a disturbance in load/generation """
-        # if step > int(0.4*sim_steps):
-        #     big_data_file[step][agent][0] = load_file_agents_time[agent][step] ** 0.5 * \
-        #                                     sine_wave_consumption_series[step] * agent_char_load[agent] * 0.5
 
     load, production, load_series_total, production_series_total = plot_input_data(big_data_file, sim_steps, N)
 
@@ -355,138 +361,162 @@ def run_mg(sim_steps, N, model_run_mg, args_run_mg):
     revenue_list_over_time = np.zeros((N,sim_steps))
     payment_list_over_time = np.zeros((N,sim_steps))
 
+    """ simple PSO lists """
+    results_over_time = np.zeros((N,sim_steps))
+    P_supply_list_over_time = np.zeros((N,sim_steps))
+    P_demand_list_over_time = np.zeros((N,sim_steps))
+    gen_output_list_over_time = np.zeros((N,sim_steps))
+    load_demand_list_over_time = np.zeros((N,sim_steps))
+    battery_soc_list_over_time = np.zeros((N,sim_steps))
     """Run that fucker"""
-    for i in range(sim_steps):
-        """ Data collection"""
-        E_surplus_total, E_demand_total, \
-        buyers, sellers, sharing_factors, \
-        c_nominal_per_step, w_nominal, \
-        R_prediction_step, E_prediction_step, R_real, \
-        actual_batteries, E_total_supply, \
-        utilities_buyers, utilities_sellers, \
-        soc_preferred_list, avg_soc_preferred, \
-        E_consumption_list, E_production_list, \
-        E_total_demand_list, c_nominal_list, E_surplus_list, E_total_supply_list,\
-        num_global_iteration, num_buyer_iteration, num_seller_iteration,\
-        profit_list, revenue_list, payment_list,\
-        deficit_total, deficit_total_progress, E_actual_supplied_list, E_allocated_list \
+    if model == 'pso':
+        for i in range(sim_steps):
+            """ Data collection PSO Micro-grid"""
+            results, P_supply_list, P_demand_list, \
+            gen_output_list, load_demand_list, battery_soc_list \
                 = model_run.step(N, lambda_set_run_mg)
 
-        profit_list_summed_over_time[i] = sum(profit_list)
-        number_of_buyers_over_time[i] = len(buyers)
-        number_of_sellers_over_time[i] = len(sellers)
+            for agent in range(N):
+                results_over_time[agent][i] = results[agent]
+                P_supply_list_over_time[agent][i] = P_supply_list[agent]
+                P_demand_list_over_time[agent][i] = P_demand_list[agent]
+                gen_output_list_over_time[agent][i] = gen_output_list[agent]
+                load_demand_list_over_time[agent][i] = load_demand_list[agent]
+                battery_soc_list_over_time[agent][i] = battery_soc_list[agent]
+            if i >= stopping_point / step_time:
+                print("DATA SAVING")
+                break
 
-        supplied_over_time_list[i] = E_total_supply
-        E_demand_over_time[i] = E_demand_total
-        c_nominal_over_time[i] = c_nominal_per_step
+        print("BATCHRUNNER: BATCH COMPLETE!")
 
-        deficit_total_over_time[i] = deficit_total
-        deficit_total_progress_over_time[i] = deficit_total_progress
-        avg_soc_preferred_over_time[i] = avg_soc_preferred
 
-        surplus_on_step_over_time[i] = E_surplus_total
-        w_nominal_over_time[i] = w_nominal
-        mean_sharing_factors[i] = np.mean(sharing_factors)
-        E_prediction_over_time[i] = E_prediction_step
-        R_prediction_over_time[i] = R_prediction_step
-        R_real_over_time[i] = R_real
-        E_total_supply_over_time[i] = E_total_supply
-        E_actual_supplied_total[i] = sum(E_actual_supplied_list)
+    else:
+        for i in range(sim_steps):
+            """ Data collection Micro-grid"""
+            E_surplus_total, E_demand_total, \
+            buyers, sellers, sharing_factors, \
+            c_nominal_per_step, w_nominal, \
+            R_prediction_step, E_prediction_step, R_real, \
+            actual_batteries, E_total_supply, \
+            utilities_buyers, utilities_sellers, \
+            soc_preferred_list, avg_soc_preferred, \
+            E_consumption_list, E_production_list, \
+            E_total_demand_list, c_nominal_list, E_surplus_list, E_total_supply_list,\
+            num_global_iteration, num_buyer_iteration, num_seller_iteration,\
+            profit_list, revenue_list, payment_list,\
+            deficit_total, deficit_total_progress, E_actual_supplied_list, E_allocated_list \
+                    = model_run.step(N, lambda_set_run_mg)
 
-        num_global_iteration_over_time[i] = num_global_iteration
-        num_buyer_iteration_over_time[i] = num_buyer_iteration
-        num_seller_iteration_over_time[i] = num_seller_iteration
-        utilities_sellers_over_time[i][:][:] = utilities_sellers
-        utilities_buyers_over_time[i][:][:] = utilities_buyers
+            profit_list_summed_over_time[i] = sum(profit_list)
+            number_of_buyers_over_time[i] = len(buyers)
+            number_of_sellers_over_time[i] = len(sellers)
+            supplied_over_time_list[i] = E_total_supply
+            E_demand_over_time[i] = E_demand_total
+            c_nominal_over_time[i] = c_nominal_per_step
+            deficit_total_over_time[i] = deficit_total
+            deficit_total_progress_over_time[i] = deficit_total_progress
+            avg_soc_preferred_over_time[i] = avg_soc_preferred
+            surplus_on_step_over_time[i] = E_surplus_total
+            w_nominal_over_time[i] = w_nominal
+            mean_sharing_factors[i] = np.mean(sharing_factors)
+            E_prediction_over_time[i] = E_prediction_step
+            R_prediction_over_time[i] = R_prediction_step
+            R_real_over_time[i] = R_real
+            E_total_supply_over_time[i] = E_total_supply
+            E_actual_supplied_total[i] = sum(E_actual_supplied_list)
+            num_global_iteration_over_time[i] = num_global_iteration
+            num_buyer_iteration_over_time[i] = num_buyer_iteration
+            num_seller_iteration_over_time[i] = num_seller_iteration
+            utilities_sellers_over_time[i][:][:] = utilities_sellers
+            utilities_buyers_over_time[i][:][:] = utilities_buyers
+            """ Lists """
+            for agent in range(N):
+                E_consumption_list_over_time[agent][i] = E_consumption_list[agent]
+                E_production_list_over_time[agent][i] = E_production_list[agent]
+                """ Buyers """
+                E_demand_list_over_time[agent][i] = E_total_demand_list[agent]
+                E_allocated_list_over_time[agent][i] = E_allocated_list[agent]
+                c_prices_over_time[agent][i] = c_nominal_list[agent]
+                payment_list_over_time[agent][i] = payment_list[agent]
+                """ Sellers"""
+                E_surplus_over_time[agent][i] = E_surplus_list[agent]
+                E_total_supply_list_over_time[agent][i] = E_total_supply_list[agent]
+                E_actual_supplied_list_over_time[agent][i] = E_actual_supplied_list[agent]
+                w_sharing_factors_list_over_time[agent][i] = sharing_factors[agent]
+                revenue_list_over_time[agent][i] = revenue_list[agent]
+                """ Batteries"""
+                actual_batteries_over_time[agent][i] = actual_batteries[agent]
+                socs_preferred_over_time[agent][i] = soc_preferred_list[agent]
+                profit_list_over_time[agent][i] = profit_list[agent]
 
-        """ Lists """
-        for agent in range(N):
-            E_consumption_list_over_time[agent][i] = E_consumption_list[agent]
-            E_production_list_over_time[agent][i] = E_production_list[agent]
+            if i >= stopping_point/step_time:
+                print("DATA SAVING")
+                break
 
-            E_demand_list_over_time[agent][i] = E_total_demand_list[agent]
-            E_allocated_list_over_time[agent][i] = E_allocated_list[agent]
-            c_prices_over_time[agent][i] = c_nominal_list[agent]
-            payment_list_over_time[agent][i] = payment_list[agent]
+        num_global_iteration_over_time_mod = np.delete(num_global_iteration_over_time, [index for index, value in enumerate(num_global_iteration_over_time) if value == 0])
+        num_buyer_iteration_over_time_mod = np.delete(num_buyer_iteration_over_time, [index for index, value in enumerate(num_buyer_iteration_over_time) if value == 0])
+        num_seller_iteration_over_time_mod = np.delete(num_seller_iteration_over_time, [index for index, value in enumerate(num_seller_iteration_over_time) if value == 0])
+        global_mean = np.mean(num_global_iteration_over_time_mod)
+        buyer_mean = np.mean(num_buyer_iteration_over_time_mod)
+        seller_mean = np.mean(num_seller_iteration_over_time_mod)
 
-            E_surplus_over_time[agent][i] = E_surplus_list[agent]
-            E_total_supply_list_over_time[agent][i] = E_total_supply_list[agent]
-            E_actual_supplied_list_over_time[agent][i] = E_actual_supplied_list[agent]
-            w_sharing_factors_list_over_time[agent][i] = sharing_factors[agent]
-            revenue_list_over_time[agent][i] = revenue_list[agent]
+        if mode == 'batchrunner':
+            np.savez('/Users/dirkvandenbiggelaar/Desktop/result_files/Batchrun_PSO' + str(model) + '_batch' + str(N) + '_commreachis' + str(comm_reach_run_mg) + '.npz',
+                     profit_list_summed_over_time, number_of_buyers_over_time, number_of_sellers_over_time,
+                     supplied_over_time_list, E_demand_over_time,
+                     c_nominal_over_time, deficit_total_over_time, deficit_total_progress_over_time,
+                     avg_soc_preferred_over_time, surplus_on_step_over_time, w_nominal_over_time,
+                     mean_sharing_factors, E_prediction_over_time, R_prediction_over_time, R_real_over_time,
+                     E_total_supply_over_time, E_actual_supplied_total, num_global_iteration_over_time,
+                     num_buyer_iteration_over_time, num_seller_iteration_over_time, utilities_sellers_over_time,
+                     utilities_buyers_over_time,
+                     E_consumption_list_over_time, E_production_list_over_time, E_demand_list_over_time,
+                     E_allocated_list_over_time, c_prices_over_time, payment_list_over_time,
+                     E_surplus_over_time, E_total_supply_list_over_time, E_actual_supplied_list_over_time,
+                     revenue_list_over_time, actual_batteries_over_time, socs_preferred_over_time, profit_list_over_time, w_sharing_factors_list_over_time,
+                     big_data_file, sim_steps, R_real_over_time, production_series_total, deficit_total_progress_over_time, N, number_prosumers)
 
-            actual_batteries_over_time[agent][i] = actual_batteries[agent]
-            socs_preferred_over_time[agent][i] = soc_preferred_list[agent]
-            profit_list_over_time[agent][i] = profit_list[agent]
+        if mode == 'normal':
+            np.savez('/Users/dirkvandenbiggelaar/Desktop/result_files/' + str(model) + '_' + str(N) + '_commreachis' + str(comm_reach_run_mg) + '.npz',
+                     profit_list_summed_over_time, number_of_buyers_over_time, number_of_sellers_over_time,
+                     supplied_over_time_list, E_demand_over_time,
+                     c_nominal_over_time, deficit_total_over_time, deficit_total_progress_over_time,
+                     avg_soc_preferred_over_time, surplus_on_step_over_time, w_nominal_over_time,
+                     mean_sharing_factors, E_prediction_over_time, R_prediction_over_time, R_real_over_time,
+                     E_total_supply_over_time, E_actual_supplied_total, num_global_iteration_over_time,
+                     num_buyer_iteration_over_time, num_seller_iteration_over_time, utilities_sellers_over_time,
+                     utilities_buyers_over_time,
+                     E_consumption_list_over_time, E_production_list_over_time, E_demand_list_over_time,
+                     E_allocated_list_over_time, c_prices_over_time, payment_list_over_time,
+                     E_surplus_over_time, E_total_supply_list_over_time, E_actual_supplied_list_over_time,
+                     revenue_list_over_time, actual_batteries_over_time, socs_preferred_over_time, profit_list_over_time,
+                     w_sharing_factors_list_over_time,
+                     big_data_file, sim_steps, R_real_over_time, production_series_total, deficit_total_progress_over_time,N, number_prosumers)
 
-        if i >= stopping_point/step_time:
-            print("DATA SAVING")
-            break
+        print("DATA SAVED")
 
-    num_global_iteration_over_time_mod = np.delete(num_global_iteration_over_time, [index for index, value in enumerate(num_global_iteration_over_time) if value == 0])
-    num_buyer_iteration_over_time_mod = np.delete(num_buyer_iteration_over_time, [index for index, value in enumerate(num_buyer_iteration_over_time) if value == 0])
-    num_seller_iteration_over_time_mod = np.delete(num_seller_iteration_over_time, [index for index, value in enumerate(num_seller_iteration_over_time) if value == 0])
-    global_mean = np.mean(num_global_iteration_over_time_mod)
-    buyer_mean = np.mean(num_buyer_iteration_over_time_mod)
-    seller_mean = np.mean(num_seller_iteration_over_time_mod)
+        """DATA PROCESSING"""
+        if plots == 'on':
+            """ execute plots within batchrunner for quick result"""
+            close_all()
+            plot_profits(profit_list_over_time, profit_list_summed_over_time, N)
+            plot_iterations(num_global_iteration_over_time, num_buyer_iteration_over_time,num_seller_iteration_over_time)
+            plot_costs_over_time(E_demand_list_over_time, E_allocated_list_over_time, payment_list_over_time, E_total_supply_list_over_time, E_actual_supplied_list_over_time, revenue_list_over_time, N, sim_steps)
+            plot_supply_demand(E_total_supply_over_time, E_actual_supplied_total, E_demand_over_time, N)
+            plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_total_supply_over_time, R_real_over_time, c_nominal_over_time)
+            plot_results(w_sharing_factors_list_over_time, E_actual_supplied_list_over_time, E_demand_list_over_time, c_prices_over_time, number_of_buyers_over_time, number_of_sellers_over_time, sim_steps)
+            plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_time, E_demand_over_time, N)
+            plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, sim_steps)
+            plot_supplied_vs_surplus_total(surplus_on_step_over_time, E_total_supply_over_time, E_demand_over_time)
+            plot_input_data(big_data_file, sim_steps, N)
+            plot_avg_soc_preferred(actual_batteries_over_time, socs_preferred_over_time, avg_soc_preferred_over_time, actual_batteries_over_time, deficit_total_over_time, deficit_total_progress_over_time, production_series_total, N, sim_steps, number_prosumers)
+            plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_demand_list_over_time, E_surplus_over_time, E_total_supply_over_time, c_nominal_over_time, N, sim_steps)
 
-    if mode == 'batchrunner':
-        np.savez('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata/' + str(model) + '_batch' + str(N) + '_commreachis' + str(comm_reach_run_mg) + '.npz',
-                 profit_list_summed_over_time, number_of_buyers_over_time, number_of_sellers_over_time,
-                 supplied_over_time_list, E_demand_over_time,
-                 c_nominal_over_time, deficit_total_over_time, deficit_total_progress_over_time,
-                 avg_soc_preferred_over_time, surplus_on_step_over_time, w_nominal_over_time,
-                 mean_sharing_factors, E_prediction_over_time, R_prediction_over_time, R_real_over_time,
-                 E_total_supply_over_time, E_actual_supplied_total, num_global_iteration_over_time,
-                 num_buyer_iteration_over_time, num_seller_iteration_over_time, utilities_sellers_over_time,
-                 utilities_buyers_over_time,
-                 E_consumption_list_over_time, E_production_list_over_time, E_demand_list_over_time,
-                 E_allocated_list_over_time, c_prices_over_time, payment_list_over_time,
-                 E_surplus_over_time, E_total_supply_list_over_time, E_actual_supplied_list_over_time,
-                 revenue_list_over_time, actual_batteries_over_time, socs_preferred_over_time, profit_list_over_time, w_sharing_factors_list_over_time,
-                 big_data_file, sim_steps, R_real_over_time, production_series_total, deficit_total_progress_over_time, N, number_prosumers)
+        length_sim  = len(supplied_over_time_list)
 
-    if mode == 'normal':
-        np.savez('/Users/dirkvandenbiggelaar/Desktop/python_plots/normaldata/' + str(model) + '_' + str(N) + '_commreachis' + str(comm_reach_run_mg) + '.npz',
-                 profit_list_summed_over_time, number_of_buyers_over_time, number_of_sellers_over_time,
-                 supplied_over_time_list, E_demand_over_time,
-                 c_nominal_over_time, deficit_total_over_time, deficit_total_progress_over_time,
-                 avg_soc_preferred_over_time, surplus_on_step_over_time, w_nominal_over_time,
-                 mean_sharing_factors, E_prediction_over_time, R_prediction_over_time, R_real_over_time,
-                 E_total_supply_over_time, E_actual_supplied_total, num_global_iteration_over_time,
-                 num_buyer_iteration_over_time, num_seller_iteration_over_time, utilities_sellers_over_time,
-                 utilities_buyers_over_time,
-                 E_consumption_list_over_time, E_production_list_over_time, E_demand_list_over_time,
-                 E_allocated_list_over_time, c_prices_over_time, payment_list_over_time,
-                 E_surplus_over_time, E_total_supply_list_over_time, E_actual_supplied_list_over_time,
-                 revenue_list_over_time, actual_batteries_over_time, socs_preferred_over_time, profit_list_over_time,
-                 w_sharing_factors_list_over_time,
-                 big_data_file, sim_steps, R_real_over_time, production_series_total, deficit_total_progress_over_time,N, number_prosumers)
+        print("BATCHRUNNER: BATCH COMPLETE!")
 
-    print("DATA SAVED")
-
-    """DATA PROCESSING"""
-    if plots == 'on':
-        """ execute plots within batchrunner for quick result"""
-        close_all()
-        plot_profits(profit_list_over_time, profit_list_summed_over_time, N)
-        plot_iterations(num_global_iteration_over_time, num_buyer_iteration_over_time,num_seller_iteration_over_time)
-        plot_costs_over_time(E_demand_list_over_time, E_allocated_list_over_time, payment_list_over_time, E_total_supply_list_over_time, E_actual_supplied_list_over_time, revenue_list_over_time, N, sim_steps)
-        plot_supply_demand(E_total_supply_over_time, E_actual_supplied_total, E_demand_over_time, N)
-        plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_total_supply_over_time, R_real_over_time, c_nominal_over_time)
-        plot_results(w_sharing_factors_list_over_time, E_actual_supplied_list_over_time, E_demand_list_over_time, c_prices_over_time, number_of_buyers_over_time, number_of_sellers_over_time, sim_steps)
-        plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_time, E_demand_over_time, N)
-        plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, sim_steps)
-        plot_supplied_vs_surplus_total(surplus_on_step_over_time, E_total_supply_over_time, E_demand_over_time)
-        plot_input_data(big_data_file, sim_steps, N)
-        plot_avg_soc_preferred(actual_batteries_over_time, socs_preferred_over_time, avg_soc_preferred_over_time, actual_batteries_over_time, deficit_total_over_time, deficit_total_progress_over_time, production_series_total, N, sim_steps, number_prosumers)
-        plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_demand_list_over_time, E_surplus_over_time, E_total_supply_over_time, c_nominal_over_time, N, sim_steps)
-
-    length_sim  = len(supplied_over_time_list)
-
-    print("BATCHRUNNER: BATCH COMPLETE!")
-
-    return global_mean, buyer_mean, seller_mean, length_sim
+        return global_mean, buyer_mean, seller_mean, length_sim
 
 # def run_mg_pso(sim_steps, N, args):
 #
@@ -705,8 +735,8 @@ if mode == 'batchrunner':
 
         list_mean_iterations_batch[num_agents - agents_low][:] = [global_mean, buyer_mean, seller_mean]
 
-    np.save('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata/list_mean_iterations_batch', list_mean_iterations_batch)
-    np.save('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata/batch_id', [agents_low, agents_high, length_sim])
+    np.save('/Users/dirkvandenbiggelaar/Desktop/result_files/Batchrun_PSO/list_mean_iterations_batch', list_mean_iterations_batch)
+    np.save('/Users/dirkvandenbiggelaar/Desktop/result_files/Batchrun_PSO/batch_id', [agents_low, agents_high, length_sim])
     # np.save('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata/batch_id_' + time.strftime(
     #     "%H_%M_%S") + "__" + time.strftime("%d_%m_%Y"),
     #         [agents_low, agents_high, length_sim])

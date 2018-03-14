@@ -48,7 +48,7 @@ class HouseholdAgent(Agent):
 
         """agent characteristics"""
         self.id = unique_id
-        self.battery_capacity_n = 15                           # every household has an identical battery, for now
+        self.battery_capacity_n = 150                           # every household has an identical battery, for now
         self.pv_generation = random.uniform(0, 1)               # random.choice(range(15)) * pvgeneration
         self.consumption = random.uniform(0, 1)                 # random.choice(range(15)) * consumption
         self.classification = []
@@ -81,7 +81,7 @@ class HouseholdAgent(Agent):
         self.predicted_E_surplus_list = np.zeros(self.horizon_agent)
         self.w_j_prediction = 0.5
         """Battery related"""
-        self.soc_actual = self.battery_capacity_n
+        self.soc_actual = 0
         self.soc_preferred = self.soc_actual * 0.7
 
         self.soc_gap = 0
@@ -179,7 +179,7 @@ class HouseholdAgent(Agent):
                 """ if buyer has battery charge left (after preferred_soc), it can either 
                 store this energy and do nothing, waiting until this surplus has gone,"""
                 self.classification = 'passive'
-                self.soc_actual -= demand_agent
+                self.soc_actual -= self.consumption
                 self.action = 'self-supplying from battery'
             else:
                 self.c_i_bidding_price = random.uniform(min(c_macro), max(c_macro))
@@ -479,14 +479,24 @@ class MicroGrid_sync_not_trading(Model):
         self.deficit_total = 0
         self.supply_deals = np.zeros(N)
         """settle all deals"""
+
         for agent in self.agents[:]:
-            agent.soc_actual += agent.pv_generation - agent.consumption
-            if agent.soc_actual <= 0:
+            agent.deficit = 0
+            agent.influx = agent.pv_generation - agent.consumption
+            if agent.soc_actual + agent.influx <= 0:
+                """ depletion """
                 agent.soc_actual = 0
-            if agent.soc_actual >= agent.battery_capacity_n:
+                agent.deficit = abs(agent.soc_actual + agent.influx)
+                agent.influx = - agent.soc_actual
+            if agent.soc_actual + agent.influx >= agent.battery_capacity_n:
+                """ overflow """
                 agent.soc_actual = agent.battery_capacity_n
-        if np.any(self.actual_batteries) < 0 or np.any(self.actual_batteries) > agent.battery_capacity_n:
+                agent.influx = agent.battery_capacity_n - agent.soc_actual
+            agent.soc_actual += agent.influx
+            self.deficit_total += agent.deficit
+        if np.any(self.actual_batteries) < -0.01 or np.any(self.actual_batteries) > agent.battery_capacity_n + 0.01:
             exit("negative battery soc, physics are broken")
+
 
         self.deficit_total_progress += self.deficit_total
         self.battery_soc_total = sum(self.actual_batteries)
@@ -505,11 +515,6 @@ class MicroGrid_sync_not_trading(Model):
         self.profit_list = np.zeros(N)
         self.revenue_list = np.zeros(N)
         self.payed_list = np.zeros(N)
-
-
-        # print('total_payed', sum(self.payed_list))
-        # print('total_received', sum(self.received_list))
-        # print('total_received - total_payed', sum(self.received_list) - sum(self.payed_list))
 
         """ Update time """
         self.steps += 1

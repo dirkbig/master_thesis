@@ -4,7 +4,7 @@ from source.plots_normalrunner import *
 
 close_all()
 
-batchdata_zip = np.load('/Users/dirkvandenbiggelaar/Desktop/python_plots/batchdata/sync_batch25_commreachisNone.npz')
+batchdata_zip = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/Disturbance/sync_no_prediction_N14_commreachisNone_distrubance.npz')
 batchdata = dict(zip(('profit_list_summed_over_time',
                       'number_of_buyers_over_time',
                       'number_of_sellers_over_time',
@@ -92,15 +92,15 @@ N = batchdata['number_of_agents']
 big_data_file = batchdata['big_data_file']
 sim_steps = batchdata['sim_steps']
 
-plot_profits(profit_list_over_time, profit_list_summed_over_time, N)
-plot_iterations(num_global_iteration_over_time, num_buyer_iteration_over_time,num_seller_iteration_over_time)
-plot_costs_over_time(E_demand_list_over_time, E_allocated_list_over_time, payment_list_over_time, E_total_supply_list_over_time, E_actual_supplied_list_over_time, revenue_list_over_time, N, sim_steps)
-plot_supply_demand(E_total_supply_over_time, E_actual_supplied_list_over_time, E_demand_over_time, N)
-plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_total_supply_over_time, R_real_over_time, c_nominal_over_time)
+# plot_profits(profit_list_over_time, profit_list_summed_over_time, N)
+# plot_iterations(num_global_iteration_over_time, num_buyer_iteration_over_time,num_seller_iteration_over_time)
+# plot_costs_over_time(E_demand_list_over_time, E_allocated_list_over_time, payment_list_over_time, E_total_supply_list_over_time, E_actual_supplied_list_over_time, revenue_list_over_time, N, sim_steps)
+# plot_supply_demand(E_total_supply_over_time, E_actual_supplied_list_over_time, E_demand_over_time, N)
+# plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_total_supply_over_time, R_real_over_time, c_nominal_over_time)
 plot_results(w_sharing_factors_list_over_time, E_actual_supplied_list_over_time, E_demand_list_over_time, c_prices_over_time, number_of_buyers_over_time, number_of_sellers_over_time, sim_steps)
-plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_time, E_demand_over_time, N)
-plot_supplied_vs_surplus_total(surplus_on_step_over_time, E_total_supply_over_time, E_demand_over_time)
-plot_input_data(big_data_file, sim_steps, N)
+# plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_time, E_demand_over_time, N)
+# plot_supplied_vs_surplus_total(surplus_on_step_over_time, E_total_supply_over_time, E_demand_over_time)
+# plot_input_data(big_data_file, sim_steps, N)
 plot_avg_soc_preferred(actual_batteries_over_time, socs_preferred_over_time, avg_soc_preferred_over_time, actual_batteries_over_time, deficit_total_over_time, deficit_total_progress_over_time, production_series_total, N, sim_steps, number_prosumers)
-plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_demand_list_over_time, E_surplus_over_time, E_total_supply_over_time, c_nominal_over_time, N, sim_steps)
-
+# plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_demand_list_over_time, E_surplus_over_time, E_total_supply_over_time, c_nominal_over_time, N, sim_steps)
+#

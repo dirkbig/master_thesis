@@ -9,9 +9,10 @@ sns.set()
 c=sns.color_palette()[0]
 b=sns.color_palette()[1]
 a=sns.color_palette()[2]
+d=sns.color_palette()[3]
 
 fig_width = (13,6)
-figsize_single = (13,1.8)
+figsize_single = (13,2.5)
 figsize_double = (13,6)
 
 days = 5
@@ -76,7 +77,7 @@ def plot_results(w_sharing_factors_list_over_time, E_actual_supplied_list_over_t
         ax1.axvline(steps/days * (day + 1), color='k', linestyle='--', alpha=0.3, label='end of day')
 
     plt.suptitle('Results')
-    fig_control_values.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_control_values.pdf', bbox_inches='tight')  # save the figure to file
+    fig_control_values.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_control_values.png', bbox_inches='tight')  # save the figure to file
 
 
 def plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_prediction_over_time, E_real_over_time, R_real_over_time, c_nominal):
@@ -125,7 +126,7 @@ def plot_w_nominal_progression(w_nominal_over_time, R_prediction_over_time, E_pr
     #
     # plt.suptitle('Normalised data on trading')
     # #plt.subplots_adjust(left=0.2, wspace=0.8, top=0.8)
-    fig_w_nominal_progression.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_w_nominal_progression.pdf', bbox_inches='tight')  # save the figure to file
+    fig_w_nominal_progression.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_w_nominal_progression.png', bbox_inches='tight')  # save the figure to file
 
 
 def plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_time, E_demand_over_time, N):
@@ -144,7 +145,7 @@ def plot_available_vs_supplied(actual_batteries_over_time, E_total_supply_over_t
     batt_soc_ax2.legend()
 
     plt.suptitle('battery business')
-    fig_available_vs_supplied.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_available_vs_supplied.pdf', bbox_inches='tight')  # save the figure to file
+    fig_available_vs_supplied.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_available_vs_supplied.png', bbox_inches='tight')  # save the figure to file
 
 
 def plot_supplied_vs_surplus_total(surplus_on_step_over_time, supplied_on_step_over_time, demand_on_step_over_time):
@@ -158,7 +159,7 @@ def plot_supplied_vs_surplus_total(surplus_on_step_over_time, supplied_on_step_o
     ax1.legend()
     ax1.set_title('energy availability')
 
-    fig_supplied_vs_surplus_total.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_supplied_vs_surplus_total.pdf', bbox_inches='tight')  # save the figure to file
+    fig_supplied_vs_surplus_total.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_supplied_vs_surplus_total.png', bbox_inches='tight')  # save the figure to file
 
 def plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_total_demand_over_time, E_surplus_over_time, E_total_supply, c_nominal_over_time, N, steps):
 
@@ -199,7 +200,7 @@ def plot_utility_buyer(utilities_buyers_over_time, c_prices_over_time, E_total_d
     ax3.legend()
 
     plt.suptitle('utility buyer')
-    fig_buyers.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_buyers.pdf', bbox_inches='tight')  # save the figure to file
+    fig_buyers.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_buyers.png', bbox_inches='tight')  # save the figure to file
 
 # def plot_utility_seller(utilities_sellers_over_time, w_factors_over_time, E_total_demand_over_time, w_nominal_over_time, N, steps):
 #
@@ -286,7 +287,7 @@ def plot_utilities(utilities_buyers_over_time, utilities_sellers_over_time, N, s
     ax2.legend()
 
     plt.suptitle('Utility values Buyers/Sellers')
-    fig_utilities.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_utilities_both.pdf', bbox_inches='tight')  # save the figure to file
+    fig_utilities.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_utilities_both.png', bbox_inches='tight')  # save the figure to file
 
 def plot_avg_soc_preferred(actual_batteries_over_time, soc_preferred_list_over_time, avg_soc_preferred_over_time, soc_actual_over_time, deficit_total_over_time, deficit_total_progress_over_time, production_series_total, N, steps, number_prosumers):
 
@@ -296,8 +297,13 @@ def plot_avg_soc_preferred(actual_batteries_over_time, soc_preferred_list_over_t
     number_prosumers = number_prosumers
     number_consumers = N - number_prosumers
 
-    x_steps = np.arange(steps)
+    deficit_total_over_time_avg = abs(deficit_total_over_time) / N
+    # np.save('/Users/dirkvandenbiggelaar/Desktop/result_files/', deficit_total_over_time_avg)
 
+
+    x_steps = np.arange(steps)
+    max_deficit = max(deficit_total_over_time_avg)/N
+    min_deficit = min(deficit_total_over_time_avg)/N
     avg_deficit_total_over_time = deficit_total_over_time / N
     std_soc_preferred_list_over_time = np.std(soc_preferred_list_over_time, axis=0)
     std_actual_batteries_over_time = np.std(actual_batteries_over_time, axis=0)
@@ -318,38 +324,46 @@ def plot_avg_soc_preferred(actual_batteries_over_time, soc_preferred_list_over_t
                 avg_soc_actual_over_time_consumers[i] += soc_actual_over_time[agent][i]/number_consumers
 
     """ PLOTS """
-    fig_soc_preferred = plt.figure(figsize=figsize_double)
+    fig_soc_preferred = plt.figure(figsize=figsize_double, dpi=500)
     plt.tight_layout(w_pad=0.2, h_pad=0.4)
     ax1 = fig_soc_preferred.add_subplot(211)
     ax2 = fig_soc_preferred.add_subplot(212)
 
 
     """ AX1 """
-    ax1.plot(x_steps, avg_soc_actual_over_time, label='average soc')
+    # ax1.plot(x_steps, avg_soc_actual_over_time, label='average soc all')
     ax1.fill_between(x_steps, avg_soc_actual_over_time - std_actual_batteries_over_time, avg_soc_actual_over_time + std_actual_batteries_over_time,color=c, alpha=0.3, label='SD')
     ax1.fill_between(x_steps, min_actual_batteries_over_time, avg_soc_actual_over_time - std_actual_batteries_over_time,color=a, alpha=0.1)
     ax1.fill_between(x_steps, max_actual_batteries_over_time, avg_soc_actual_over_time + std_actual_batteries_over_time,color=a, alpha=0.1, label='min-max')
+    ax1.plot(x_steps, avg_soc_actual_over_time_prosumers, color=b, linestyle='-', label='prosumers', alpha=0.9)
+    ax1.plot(x_steps, avg_soc_actual_over_time_consumers, color=d, linestyle='-', label='consumers', alpha=0.9)
     for day in range(days):
         ax1.axvline(steps/days * (day + 1), color='k', linestyle='-', alpha=0.15)
 
     ax1.legend(loc='lower right', bbox_to_anchor=(1, 1), ncol=3)
-    ax1.set_xlabel('time steps')
+    ax1.set_xlabel('time')
     ax1.set_ylabel('kWh')
 
     """ AX2 """
-    ax2.plot(x_steps, avg_soc_actual_over_time_prosumers, color=c, label='prosumers')
-    ax2.plot(x_steps, avg_soc_actual_over_time_consumers, color=b, linestyle='-',label='consumers')
-
     for day in range(days):
         ax2.axvline(steps/days * (day + 1), color='k', linestyle='-', alpha=0.15)
+    ax2.plot(x_steps, deficit_total_over_time_avg, color=a, linestyle='--', label='deficit', alpha=0.9)
 
-    ax2.legend(loc='lower right', bbox_to_anchor=(1, -0.1), ncol=3)
-    ax2.set_xlabel('time steps')
+    ax2.legend(loc='lower right', bbox_to_anchor=(1, -0.3), ncol=3)
+    ax2.set_xlabel('time')
     ax2.set_ylabel('kWh')
 
+    ax1.xaxis.set_ticks(np.arange(min(x_steps), max(x_steps), 72))
+    ax2.xaxis.set_ticks(np.arange(min(x_steps), max(x_steps), 72))
+    x_ticks_labels = ['00:00','06:00', '12:00','18:00','00:00','06:00', '12:00','18:00','00:00','06:00', '12:00','18:00','00:00','06:00', '12:00','18:00','00:00','06:00', '12:00','18:00','00:00',]
+    ax1.set_xticks(np.arange(min(x_steps), max(x_steps), 36))
+    ax1.set_xticklabels(x_ticks_labels, rotation='horizontal' , fontsize=8)
+    ax2.set_xticks(np.arange(min(x_steps), max(x_steps), 36))
+    ax2.set_xticklabels(x_ticks_labels, rotation='horizontal', fontsize=8)
     """ settings """
-    ax1.set_ylim([0, 15])
-    ax2.set_ylim([0, 15])
+    # ax1.set_ylim([0, 15])
+    # ax2.set_ylim([min_deficit, max_deficit])
+
 
     fig_soc_preferred.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_soc_preferred.png', bbox_inches='tight')
 
@@ -367,7 +381,7 @@ def plot_supply_demand(E_total_supply, E_actual_supplied_list_over_time, demand_
     ax1.legend()
     plt.suptitle('Supply vs Demand')
 
-    fig_supply_demand.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_supply_demand.pdf', bbox_inches='tight')  # save the figure to file
+    fig_supply_demand.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_supply_demand.png', bbox_inches='tight')  # save the figure to file
 
 def plot_input_data(big_data_file, sim_steps,N):
 
@@ -405,7 +419,7 @@ def plot_input_data(big_data_file, sim_steps,N):
     ax3.legend()
 
     plt.suptitle('Supply vs Demand')
-    fig_input_data.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_input_data.pdf', bbox_inches='tight')  # save the figure to file
+    fig_input_data.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_input_data.png', bbox_inches='tight')  # save the figure to file
 
 
     load = sum(load_series_total)
@@ -425,7 +439,7 @@ def plot_C_P(load_series_total, production_series_total):
 
     plt.legend()
     plt.suptitle('Total Production vs. Consumption')
-    fig_total_P_C.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_total_P_C.pdf', bbox_inches='tight')  # save the figure to file
+    fig_total_P_C.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_total_P_C.png', bbox_inches='tight')  # save the figure to file
 
     return
 
@@ -437,7 +451,7 @@ def plot_iterations(global_iteration_over_time, buyer_iteration_over_time, selle
     plt.plot(buyer_iteration_over_time, label='buyers-level iterations')
     plt.plot(seller_iteration_over_time, label='sellers-level iterations')
 
-    fig_plot_iterations.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_iterations.pdf', bbox_inches='tight')  # save the figure to file
+    fig_plot_iterations.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_iterations.pngpng', bbox_inches='tight')  # save the figure to file
 
 
 
@@ -450,7 +464,7 @@ def plot_profits(profit_list_over_time, profit_list_summed_over_time, N):
     plt.plot(profit_list_summed_over_time)
 
 
-    fig_plot_profits.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_profits.pdf', bbox_inches='tight')  # save the figure to file
+    fig_plot_profits.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_profits.png', bbox_inches='tight')  # save the figure to file
 
 def plot_costs_over_time(E_demand_list_over_time, E_allocated_list_over_time, payment_list, E_total_supply_list_over_time, E_actual_supplied_list, revenue_list, N, steps):
     """ Costs over time """
@@ -489,7 +503,7 @@ def plot_costs_over_time(E_demand_list_over_time, E_allocated_list_over_time, pa
     sales.set_title('sales over time per agent')
 
     profit.set_title('profit over time per agent')
-    fig_costs_over_time_agent.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_costs_over_time_agent.pdf', bbox_inches='tight')  # save the figure to file
+    fig_costs_over_time_agent.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_costs_over_time_agent.png', bbox_inches='tight')  # save the figure to file
 
 
 def plot_PSO(results_over_time, P_supply_list_over_time, P_demand_list_over_time, gen_output_list_over_time, load_demand_list_over_time, avg_battery_soc_list_over_time, N, sim_steps):
@@ -516,7 +530,7 @@ def plot_PSO(results_over_time, P_supply_list_over_time, P_demand_list_over_time
 
     plt.legend()
 
-    fig_plot_PSO_dispatch.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_PSO_dispatch.pdf', bbox_inches='tight')  # save the figure to file
+    fig_plot_PSO_dispatch.savefig('/Users/dirkvandenbiggelaar/Desktop/python_plots/fig_plot_PSO_dispatch.png', bbox_inches='tight')  # save the figure to file
 
 
 """ TODO 

@@ -26,9 +26,9 @@ blockchain = 'off'
 """"""""""""""""""""""""""""""""""""""""""""
 """ TRADING ON/NO-PREDICTION/SUPPLY-ALL  """
 """"""""""""""""""""""""""""""""""""""""""""
-trading = 'supply_all'
-# trading = 'on_without_prediction'
-# trading = 'on'
+
+# prediction = 'on'
+prediction = 'off'
 
 
 
@@ -98,7 +98,7 @@ class HouseholdAgent(Agent):
 
         """prediction"""
         self.current_step = 0
-        self.max_horizon =  700
+        self.max_horizon =  1440
         self.horizon_agent = min(self.max_horizon, sim_steps - self.current_step)  # including current step
         self.predicted_E_surplus_list = np.zeros(self.horizon_agent)
         self.w_j_prediction = 0.5
@@ -308,7 +308,6 @@ class HouseholdAgent(Agent):
 """Microgrid model environment"""
 
 class MicroGrid_sync(Model):
-
 
     """create environment in which agents can operate"""
     def __init__(self, big_data_file, starting_point, N, lambda_set):
@@ -632,6 +631,9 @@ class MicroGrid_sync(Model):
                         agent.utilities_buyer = [agent.utility_i, demand_gap, utility_demand_gap, utility_costs]
                         self.utilities_buyers[agent.id] = [agent.utility_i, demand_gap, utility_demand_gap, utility_costs]
 
+                        if agent.E_i_allocation > agent.actuator_sat_ESS_charge:
+                            print("allocation is higher than charging actuator saturation")
+
                         if agent.utility_i - sol_buyer.fun > 1:
                             # sys.exit("utility_i calculation does not match with optimization code")
                             pass
@@ -696,10 +698,42 @@ class MicroGrid_sync(Model):
                         agent.bidding_prices_others = sum(self.c_bidding_prices)
                         """ Optimization """
 
-                        # if trading == 'on' or trading == 'on_without_prediction':
-                        sol_seller, \
-                        sol_seller.x[0], \
-                        utility_seller_function = sellers_game_optimization(agent.id,
+                        if prediction == 'on':
+                            sol_seller, \
+                            sol_seller.x[0], \
+                            utility_seller_function = sellers_game_optimization(agent.id,
+                                                                                    agent.E_j_surplus,
+                                                                                    self.R_total,
+                                                                                    agent.E_supply_others,
+                                                                                    self.R_prediction,
+                                                                                    agent.E_supply_others_prediction,
+                                                                                    agent.w_j_storage_factor,
+                                                                                    agent.E_prediction_agent,
+                                                                                    agent.lower_bound_on_w_j,
+                                                                                    lambda_set, agent.actuator_sat_ESS_discharge)
+
+                            agent.w_j_storage_factor = sol_seller.x[0]
+                            prediction_utility, direct_utility, agent.utility_j = calc_utility_function_j(agent.id,
+                                                                                                        agent.E_j_surplus,
+                                                                                                        self.R_total,
+                                                                                                        agent.E_supply_others,
+                                                                                                        self.R_prediction,
+                                                                                                        agent.E_supply_others_prediction,
+                                                                                                        agent.w_j_storage_factor,
+                                                                                                        agent.E_prediction_agent, lambda_set)
+
+
+
+                            if abs(agent.utility_j - sol_seller.fun) > 10:
+                                # exit("utility_j calculation does not match with optimization code")
+                                pass
+
+                            agent.utility_seller = [agent.utility_j, prediction_utility, direct_utility]
+
+                        if prediction == 'off':
+                            sol_seller, \
+                            sol_seller.x[0], \
+                            utility_seller_function = sellers_game_optimization(agent.id,
                                                                                 agent.E_j_surplus,
                                                                                 self.R_total,
                                                                                 agent.E_supply_others,
@@ -708,31 +742,17 @@ class MicroGrid_sync(Model):
                                                                                 agent.w_j_storage_factor,
                                                                                 agent.E_prediction_agent,
                                                                                 agent.lower_bound_on_w_j,
-                                                                                lambda_set, agent.actuator_sat_ESS_discharge)
+                                                                                lambda_set,
+                                                                                agent.actuator_sat_ESS_discharge)
 
-                        agent.w_j_storage_factor = sol_seller.x[0]
-                        prediction_utility, direct_utility, agent.utility_j = calc_utility_function_j(agent.id,
-                                                                                                    agent.E_j_surplus,
-                                                                                                    self.R_total,
-                                                                                                    agent.E_supply_others,
-                                                                                                    self.R_prediction,
-                                                                                                    agent.E_supply_others_prediction,
-                                                                                                    agent.w_j_storage_factor,
-                                                                                                    agent.E_prediction_agent, lambda_set)
-
-                        if abs(agent.utility_j - sol_seller.fun) > 10:
-                            exit("utility_j calculation does not match with optimization code")
-                            pass
-
-                        agent.utility_seller = [agent.utility_j, prediction_utility, direct_utility]
+                            agent.utility_seller = [utility_seller_function, None, None]
                         self.utilities_sellers[agent.id] = agent.utility_seller
 
-
-
-                        # if trading == 'supply_all':
-                        #     agent.w_j_storage_factor = 1
-                        #     agent.utility_seller = 1
-
+                        """"""""""""""""""""""""""""""
+                        """ In case of ALL-supply """
+                        """"""""""""""""""""""""""""""
+                        # agent.w_j_storage_factor = 1
+                        # agent.E_j_supply = agent.E_j_surplus
 
                         """ Update on values """
                         agent.E_j_supply = agent.E_j_surplus * agent.w_j_storage_factor
@@ -743,12 +763,16 @@ class MicroGrid_sync(Model):
                         agent.E_supply_others = sum(self.E_total_supply_list) - self.E_total_supply_list[agent.id]
                         self.w_storage_factors[agent.id] = agent.w_j_storage_factor
 
+                        if agent.E_j_supply >= agent.actuator_sat_ESS_discharge:
+                            pass
+                            # print("supply is higher than actuator saturation")
+
+
                         """Tolerance"""
                         new_wj = agent.w_j_storage_factor
                         tolerance_sellers[agent.id] = abs(new_wj - prev_wj)
                     else:
                         agent.w_j_storage_factor = 0
-                        agent.E_j_supply = 0
 
 
                 self.E_total_supply = sum(self.E_total_supply_list)
@@ -799,42 +823,43 @@ class MicroGrid_sync(Model):
             else:
                 pass
 
+
         self.deficit_total = 0
         self.supply_deals = np.zeros(N)
         total_payment = 0
+
         """settle all deals"""
         for agent in self.agents[:]:
+            agent.deficit = 0
             agent.payment = 0
+            agent.soc_influx = 0
             if agent.classification == 'buyer':
                 """ buyers costs """
-                # agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
                 self.supply_deals[agent.id] = agent.E_i_allocation
-                agent.soc_influx = agent.E_i_allocation - agent.consumption
+                agent.soc_influx = agent.E_i_allocation - agent.consumption + agent.pv_generation
                 if agent.soc_actual + agent.soc_influx < 0:
                     """ battery is depleting """
-                    agent.deficit = agent.soc_actual + agent.soc_influx
-                    agent.soc_influx = agent.E_i_demand + agent.deficit
-                    self.deficit_total += agent.deficit
-                if agent.soc_actual + agent.soc_influx > agent.battery_capacity_n:
+                    agent.deficit = abs(agent.soc_actual + agent.soc_influx)
+                    agent.soc_actual = 0
+                elif agent.soc_actual + agent.soc_influx > agent.battery_capacity_n:
                     """ battery is overflowing """
                     real_influx = agent.soc_influx
                     agent.soc_influx = agent.battery_capacity_n - agent.soc_actual
                     agent.batt_overflow = real_influx - agent.soc_influx
-                agent.soc_actual += agent.soc_influx
+                else:
+                    agent.soc_actual += agent.soc_influx
                 agent.payment = agent.E_i_allocation * agent.c_i_bidding_price
                 total_payment += agent.payment
             self.actual_batteries[agent.id] = agent.soc_actual
 
-        for agent in self.agents[:]:
             agent.revenue = 0
             if agent.classification == 'seller':
                 """ sellers earnings """
                 agent.soc_influx = agent.E_j_surplus * (1 - agent.w_j_storage_factor) + agent.E_j_returned_supply
                 if agent.soc_actual + agent.soc_influx < 0:
                     """ battery is depleting """
-                    agent.deficit = agent.soc_actual + agent.soc_influx
+                    agent.deficit = abs(agent.soc_actual + agent.soc_influx)
                     agent.soc_influx = agent.E_i_demand + agent.deficit
-                    self.deficit_total += agent.deficit
                 if agent.soc_actual + agent.soc_influx > agent.battery_capacity_n:
                     """ battery is overflowing """
                     real_influx = agent.soc_influx
@@ -843,15 +868,20 @@ class MicroGrid_sync(Model):
                 agent.revenue = agent.E_j_actual_supplied/sum(self.E_actual_supplied_list) * total_payment
                 if np.isnan(agent.revenue):
                     agent.revenue = 0
-
                 agent.soc_actual += agent.soc_influx
 
-                # """ HERE W IS UPDATED WRT OVERSUPPLY!"""
-                # agent.w_j_storage_factor = agent.soc_influx / agent.E_j_surplus
+                """ HERE W IS UPDATED WRT OVERSUPPLY!"""
+                agent.w_j_storage_factor = agent.soc_influx / agent.E_j_surplus
+
+            self.deficit_total += abs(agent.deficit)
 
             self.actual_batteries[agent.id] = agent.soc_actual
-        if np.any(self.actual_batteries) < 0 or np.any(self.actual_batteries) > agent.battery_capacity_n:
+        if np.any(self.actual_batteries < 0) or np.any(self.actual_batteries > agent.battery_capacity_n):
             exit("negative battery soc, physics are broken")
+
+        if np.any(self.actual_batteries) < 0:
+            print("negative battery soc")
+
 
         self.deficit_total_progress += self.deficit_total
         self.battery_soc_total = sum(self.actual_batteries)
@@ -880,11 +910,6 @@ class MicroGrid_sync(Model):
             self.profit_list[agent.id] = agent.profit
             self.revenue_list[agent.id] = agent.revenue
             self.payment_list[agent.id] = agent.payment
-
-
-        # print('total_payed', sum(self.payed_list))
-        # print('total_received', sum(self.received_list))
-        # print('total_received - total_payed', sum(self.received_list) - sum(self.payed_list))
 
         """ Update time """
         self.steps += 1

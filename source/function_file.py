@@ -7,8 +7,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 
+
+""""""""""""""""""""""""""
+""" PREDICTION ON/OFF  """
+""""""""""""""""""""""""""
 #prediction = 'off'
 prediction = 'on'
+
+
+""""""""""""""""""""""""""""""
+""" SAT CONSTRAINT ON/OFF  """
+""""""""""""""""""""""""""""""
+# constraints = 'off'
+constraints = 'on'
+
+
 factor_revenue = 1
 
 """ DATA """
@@ -178,31 +191,38 @@ def buyers_game_optimization(id_buyer, E_i_demand ,supply_on_step, c_macro, bidd
 
     def utility_buyer(c_i, E_i_opt, E_j_opt, c_l_opt, lambda11, lambda12):
         """self designed parametric utility function, Closing the gap vs costs for closing the gap"""
-        if (c_l_opt + c_i) > 0 and c_i > 0:
-            try:
-                return (abs(E_i_opt - E_j_opt * c_i / (c_l_opt + c_i)))**lambda11 + (c_i * E_j_opt * (c_i/(c_l_opt + c_i)))**lambda12
-            except RuntimeWarning:
-                return 0
-        else:
+        try:
+            return (abs(E_i_opt - E_j_opt * c_i / (c_l_opt + c_i)))**lambda11 + (c_i * E_j_opt * (c_i/(c_l_opt + c_i)))**lambda12
+        except RuntimeWarning:
             return 0
+
 
 
     E_i = E_i_demand
     E_j = supply_on_step
     c_l = bidding_prices_others_opt
-    soc_av = E_batt_available
-    soc_gap = SOC_gap_agent
-
-
-    # cons_sat = {'type': 'ineq', 'fun': lambda x: actuator_saturation_ESS_charge -  E_j * x / (c_l + x)}
     bounds_buyer = [(0, None)]
     init = bidding_price_i_prev
 
     lambda11 = lambda_set[0]
     lambda12 = lambda_set[1]
 
-    """optimize using SLSQP(?)"""
-    sol_buyer = minimize(lambda x : utility_buyer(x, E_i, E_j, c_l, lambda11, lambda12), init, method='SLSQP', bounds=bounds_buyer)
+    def constraint_charging_sat(c_i):
+        return actuator_saturation_ESS_charge - -  E_j * c_i / (c_l + c_i)
+
+    """ Actuator saturation on charging """
+    if constraints == 'on':
+        cons_sat = {'type': 'ineq', 'fun': lambda c_i: actuator_saturation_ESS_charge -  E_j * c_i / (c_l + c_i)}
+        """optimize using SLSQP(?)"""
+        sol_buyer = minimize(lambda x: utility_buyer(x, E_i, E_j, c_l, lambda11, lambda12), init, method='SLSQP',
+                             constraints=cons_sat, bounds=bounds_buyer)
+
+    else:
+        """optimize using SLSQP(?)"""
+        sol_buyer = minimize(lambda x: utility_buyer(x, E_i, E_j, c_l, lambda11, lambda12), init, method='SLSQP',
+                                                bounds=bounds_buyer)
+
+
 
     """return 4th element of solution vector."""
     return sol_buyer, sol_buyer.x[0]
@@ -235,9 +255,37 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
         return - ( (R_p_opt * (E_j_p_opt * (1 - w) / (E_p_opt + E_j_p_opt * (1 - w)))) ** lambda21
                        + (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w))) ** lambda22 )
 
-    # def utility_seller_no_prediction(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt, E_j_p_opt, lambda21, lambda22):
-    #     """ Utility function seller without prediction decision"""
-    #     return np.log(1 + E_j_opt * (1 - w)) + factor_revenue * (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w)))
+    R_p = R_prediction
+    E_j = E_j_seller
+    E_p = E_supply_prediction
+    R_d = R_direct
+    E_d = E_supply_others
+    E_j_p = E_j_prediction_seller
+
+    bounds_seller = [(min(lower_bound_on_w_j, 0.99), 1.0)]
+    init = w_j_storage_factor
+    lambda21 = lambda_set[2]
+    lambda22 = lambda_set[3]
+
+    """ Actuator saturation on discharging """
+    if constraints == 'on':
+        cons_sat = {'type': 'ineq', 'fun': lambda w: actuator_saturation_ESS_discharge + E_j * (1-w), 'jac': lambda w: E_j}
+        sol_seller = minimize(lambda w: utility_seller(w, R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22), init,
+                              method='SLSQP', constraints=cons_sat, bounds=bounds_seller)
+    else:
+        sol_seller = minimize(lambda w: utility_seller(w, R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22), init,
+                              method='SLSQP',  bounds=bounds_seller)
+
+
+    return sol_seller, sol_seller.x[0], utility_seller(sol_seller.x[0], R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22)
+
+def sellers_game_optimization_no_prediction(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lower_bound_on_w_j, lambda_set, actuator_saturation_ESS_discharge):
+    """ Anticipation on buyers is plugged in here"""
+
+
+    def utility_seller_no_prediction(w, R_p_opt, E_j_opt, E_p_opt, R_d_opt, E_d_opt, E_j_p_opt, lambda21, lambda22):
+        """ Utility function seller without prediction decision"""
+        return np.log(1 + E_j_opt * (1 - w)) + factor_revenue * (R_d_opt * (E_j_opt * w / (E_d_opt + E_j_opt * w)))
 
     R_p = R_prediction
     E_j = E_j_seller
@@ -246,22 +294,24 @@ def sellers_game_optimization(id_seller, E_j_seller, R_direct, E_supply_others, 
     E_d = E_supply_others
     E_j_p = E_j_prediction_seller
 
+    bounds_seller = [(min(lower_bound_on_w_j, 0.99), 1.0)]
+    init = w_j_storage_factor
     lambda21 = lambda_set[2]
     lambda22 = lambda_set[3]
 
-    # cons_sat = {'type': 'ineq', 'fun': lambda w: actuator_saturation_ESS_discharge - E_j * w / (E_d + E_j * w)}
-    bounds_seller = [(min(lower_bound_on_w_j, 0.99), 1.0)]
-    init = w_j_storage_factor
+    """ Actuator saturation on charging """
+    if constraints == 'on':
+        cons_sat = {'type': 'ineq', 'fun': lambda w: actuator_saturation_ESS_discharge - E_j * (1-w), 'jac': lambda w: E_j}
+        sol_seller = minimize(
+            lambda w: utility_seller_no_prediction(w, R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22), init,
+            method='SLSQP', constraints=cons_sat, bounds=bounds_seller)
 
-    sol_seller = minimize(lambda w : utility_seller(w, R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22), init, method='SLSQP', bounds=bounds_seller)
-    return sol_seller, sol_seller.x[0], utility_seller(sol_seller.x[0], R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22)
+    else:
+        sol_seller = minimize(lambda w: utility_seller_no_prediction(w, R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22), init,
+            method='SLSQP', bounds=bounds_seller)
 
-    # if prediction == 'off':
-    #     sol_seller = minimize(lambda w: utility_seller_no_prediction(w, R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22), init,
-    #                           method='SLSQP', bounds=bounds_seller)
 
-    # """return 5th element of solution vector."""
-    # if prediction == 'on':
+    return sol_seller, sol_seller.x[0], utility_seller_no_prediction(sol_seller.x[0], R_p, E_j, E_p, R_d, E_d, E_j_p, lambda21, lambda22)
 
 
 def calc_utility_function_j(id_seller, E_j_seller, R_direct, E_supply_others, R_prediction, E_supply_prediction, w_j_storage_factor, E_j_prediction_seller, lambda_set):
@@ -405,6 +455,11 @@ def calc_E_surplus_prediction(E_prediction_step, horizon, N, prediction_range, s
     """ atm this is linear weighted. I would make sense to make closer values more important/heavier weighted,
         then; for faster response it is important to act on shorter-term prediction"""
     E_surplus_prediction = 0
+    horizon_factor_up = np.arange(0.5, 1.5, prediction_range)
+    horizon_factor_down = np.arange(1.5, 0.5, prediction_range)
+
+    factor = min(horizon_factor_up, horizon_factor_down)
+
     for steps in range(horizon):
         E_surplus_prediction += E_prediction_step[steps]
     """linear defined E_surplus_prediction_over_horizon"""
@@ -443,11 +498,6 @@ def get_ESS_satuation(step_time):
     P_max_discharge = (0.2 * 230 * 65) / (1000 * (60 / step_time))
 
     return P_max_discharge, P_max_charge
-
-
-
-
-
 
 
 
