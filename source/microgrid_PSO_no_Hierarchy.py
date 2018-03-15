@@ -1,12 +1,8 @@
-from blockchain.smartcontract import *
-from source.function_file import *
-import sys
-import numpy as np
 from mesa import Agent, Model
-from pyswarm import pso
+
+from blockchain.smartcontract import *
+from functions.function_file import *
 from functions.pso_custom import *
-import matplotlib.pyplot as plt
-import time
 
 ###############################################
 ### PSO NON-HIERARCHICAL OPTIMIZATION MODEL ###

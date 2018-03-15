@@ -1,7 +1,7 @@
 """ Particle swarm optimization """
 import numpy as np
 from pyswarm import pso
-from source.function_file import *
+from functions.function_file import *
 from mesa import Agent, Model
 
 

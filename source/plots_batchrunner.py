@@ -63,7 +63,7 @@ def thesis_supply_demand_batch_plot(E_total_supply_list_over_time_mean, w_nomina
         if batch % 3 == 0:
             supply.plot(E_total_supply_list_over_time_mean[batch], 'c-')
 
-    supply.plot(w_nominal_over_time_batch[batch], 'k-')
+            supply.plot(w_nominal_over_time_batch[batch], 'k-')
 
     fig_thesis_supply_demand_batch.savefig('/Users/dirkvandenbiggelaar/Desktop/used_plots/fig_thesis_supply_demand_batch.png', bbox_inches='tight')
 
@@ -107,4 +107,18 @@ def thesis_soc_batch_plot(actual_batteries_list_over_time_batch, socs_preferred_
 
         fig_thesis_soc_batch_plot.savefig('/Users/dirkvandenbiggelaar/Desktop/used_plots/fig_thesis_soc_batch_plot.png', bbox_inches='tight')
 
-def elapsed_time():
+def plot_elapsed_time(elapsed_time):
+    num_batches = int(len(elapsed_time)/2)
+
+    y_time = np.zeros(num_batches)
+    x_num_agents = np.zeros(num_batches)
+
+    for i in range(num_batches):
+        y_time[i] = elapsed_time[2*i]
+        x_num_agents[i] = elapsed_time[2*i + 1]
+
+    plt.plot(x_num_agents,y_time)
+    plt.show()
+
+
+    pass

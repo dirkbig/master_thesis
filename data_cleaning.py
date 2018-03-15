@@ -1,5 +1,5 @@
 import os
-from source.function_file import *
+from functions.function_file import *
 
 N_same_length = 10
 # sudo find /Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION -name ".DS_Store" -depth -exec rm {} \; removes all DS_Store files

@@ -1,9 +1,8 @@
-from blockchain.smartcontract import *
-from source.function_file import *
-import sys
 import numpy as np
 from mesa import Agent, Model
-import timeit
+
+from blockchain.smartcontract import *
+from functions.function_file import *
 
 #########################
 ### SYNCHRONOUS MODEL ###

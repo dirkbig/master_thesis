@@ -1,7 +1,6 @@
-import numpy as np
 from pyswarm import pso
-from source.function_file import *
-import random
+
+from functions.function_file import *
 
 N = 3
 

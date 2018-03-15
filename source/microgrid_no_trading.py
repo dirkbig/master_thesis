@@ -1,9 +1,8 @@
-from blockchain.smartcontract import *
-from source.function_file import *
-import sys
 import numpy as np
 from mesa import Agent, Model
 
+from blockchain.smartcontract import *
+from functions.function_file import *
 
 #####################################
 ### SYNCHRONOUS MODEL NON-TRADING ###
@@ -80,6 +79,8 @@ class HouseholdAgent(Agent):
         self.horizon_agent = min(self.max_horizon, sim_steps - self.current_step)  # including current step
         self.predicted_E_surplus_list = np.zeros(self.horizon_agent)
         self.w_j_prediction = 0.5
+        self.predicted_E_consumption_list = np.zeros(self.horizon_agent)
+
         """Battery related"""
         self.soc_actual = 0
         self.soc_preferred = self.soc_actual * 0.7
