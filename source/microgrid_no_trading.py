@@ -134,10 +134,12 @@ class HouseholdAgent(Agent):
         """ agents personal prediction, can be different per agent (difference in prediction quality?)"""
         self.horizon_agent = min(self.max_horizon, sim_steps - self.current_step - 1)  # including current step
         self.predicted_E_surplus_list = np.zeros(self.horizon_agent)
+        self.predicted_E_consumption_list = np.zeros(self.horizon_agent)
 
         for i in range(self.horizon_agent):
             self.predicted_E_surplus_list[i] = big_data_file[steps + i][self.id][0] \
                                                - big_data_file[steps + i][self.id][1]  # load - production
+            self.predicted_E_consumption_list[i] = big_data_file[steps + i][self.id][0]
             if self.predicted_E_surplus_list[i] < 0:
                 self.predicted_E_surplus_list[i] = 0
 
@@ -152,7 +154,9 @@ class HouseholdAgent(Agent):
         battery_horizon = self.horizon_agent  # including current step
 
         self.soc_preferred = get_preferred_soc(self.soc_preferred, self.battery_capacity_n,
-                                               self.predicted_E_surplus_list, self.soc_actual, battery_horizon)
+                                               self.predicted_E_surplus_list, self.soc_actual, battery_horizon,
+                                               self.predicted_E_consumption_list)
+
         self.soc_gap = self.soc_preferred - self.soc_actual
         self.soc_surplus = 0
         if self.soc_gap < 0:
@@ -528,12 +532,10 @@ class MicroGrid_sync_not_trading(Model):
                self.utilities_buyers, self.utilities_sellers, \
                self.soc_preferred_list, avg_soc_preferred, \
                self.E_consumption_list, self.E_production_list, \
-               self.E_demand_list, self.c_bidding_prices, self.E_surplus_list, self.E_total_supply_list,\
+               self.E_demand_list, self.c_bidding_prices, self.E_surplus_list, self.E_total_supply_list, \
                self.num_global_iteration, self.num_buyer_iteration, self.num_seller_iteration, \
-               self.profit_list, self.revenue_list, self.payment_list,\
+               self.profit_list, self.revenue_list, self.payment_list, \
                self.deficit_total, self.deficit_total_progress, self.E_actual_supplied_list, self.E_allocation_list
-
-
 
     def __repr__(self):
         return "no trading Microgrid"

@@ -3,7 +3,7 @@ from source.function_file import *
 import sys
 import numpy as np
 from mesa import Agent, Model
-
+import timeit
 
 #########################
 ### SYNCHRONOUS MODEL ###
@@ -28,8 +28,8 @@ blockchain = 'off'
 """ TRADING ON/NO-PREDICTION/SUPPLY-ALL  """
 """"""""""""""""""""""""""""""""""""""""""""
 
-prediction = 'on'
-# prediction = 'off'
+# prediction = 'on'
+prediction = 'off'
 
 
 
@@ -167,7 +167,6 @@ class HouseholdAgent(Agent):
         for i in range(self.horizon_agent):
             self.predicted_E_surplus_list[i] = big_data_file[steps + i][self.id][0] \
                                                - big_data_file[steps + i][self.id][1]
-
             self.predicted_E_consumption_list[i] = big_data_file[steps + i][self.id][0]
             if self.predicted_E_surplus_list[i] < 0:
                 self.predicted_E_surplus_list[i] = 0
@@ -201,7 +200,6 @@ class HouseholdAgent(Agent):
         """define buyers/sellers classification"""
         [classification, surplus_agent, demand_agent] = define_pool(self.consumption, self.pv_generation, self.soc_gap, self.soc_surplus, self.charge_rate, self.discharge_rate)
         self.classification = classification
-
         self.batt_available = self.battery_capacity_n - self.soc_actual
 
         """Define players pool and let agents act according to battery states"""
@@ -423,7 +421,6 @@ class MicroGrid_sync(Model):
     def step(self, N, lambda_set):
         """Environment proceeds a step after all agents took a step"""
         print("Step =", self.steps)
-
         for agent in self.agents[:]:
             self.actual_batteries[agent.id] = agent.soc_actual
 
@@ -834,10 +831,6 @@ class MicroGrid_sync(Model):
         if np.any(self.actual_batteries < 0) or np.any(self.actual_batteries > agent.battery_capacity_n):
             exit("negative battery soc, physics are broken")
 
-        if np.any(self.actual_batteries) < 0:
-            print("negative battery soc")
-
-
         self.deficit_total_progress += self.deficit_total
         self.battery_soc_total = sum(self.actual_batteries)
         if self.battery_soc_total < 0:
@@ -871,7 +864,6 @@ class MicroGrid_sync(Model):
         self.time += 1
 
 
-
         return self.E_total_surplus, self.E_demand, \
                self.buyers_pool, self.sellers_pool, self.w_storage_factors, \
                self.c_nominal, self.w_nominal, \
@@ -884,5 +876,4 @@ class MicroGrid_sync(Model):
                self.num_global_iteration, self.num_buyer_iteration, self.num_seller_iteration, \
                self.profit_list, self.revenue_list, self.payment_list,\
                self.deficit_total, self.deficit_total_progress, self.E_actual_supplied_list, self.E_allocation_list
-
 

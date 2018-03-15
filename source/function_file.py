@@ -22,7 +22,6 @@ constraints = 'off'
 # constraints = 'on'
 
 
-factor_revenue = 1
 
 """ DATA """
 def check_file(filename):
@@ -692,6 +691,26 @@ def combined_objective_function_PSO(x, *args):
     cost_sellers = seller_objective_function_PSO(w, args_seller)
     cost_sellers = abs(cost_sellers)
 
-    cost_total = cost_buyers + cost_sellers
+    cost_total = cost_buyers/200 + 200*cost_sellers
 
     return cost_total
+
+
+
+
+
+
+
+""" TIC TOC """
+def tic():
+    import time
+    global startTime_for_tictoc
+    startTime_for_tictoc = time.time()
+
+def toc():
+    import time
+    if 'startTime_for_tictoc' in globals():
+        print("Elapsed time is " + str(time.time() - startTime_for_tictoc) + " seconds.")
+    else:
+        print("Toc: start time not set")
+    return time.time() - startTime_for_tictoc

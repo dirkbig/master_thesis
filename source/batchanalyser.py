@@ -2,7 +2,16 @@ import numpy as np
 from source.plots_batchrunner import *
 container = []
 
-batch_id = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/Batchrun_EBZ/Batchrun_EBZsync_batch/batch_id.npy')
+
+
+
+batch_folder = 'NoTrade'
+
+
+elapsed_time = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/' + batch_folder + '/batch_id.npy')
+batch_id = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/' + batch_folder + '/Elapsed_time_batch.npy')
+list_mean_iterations_batch = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/' + batch_folder + '/list_mean_iterations_batch.npy')
+
 agents_low, agents_high, length_sim = batch_id
 num_steps = length_sim
 range_agents = agents_high - agents_low
@@ -10,9 +19,8 @@ num_batches = len(range(agents_low, agents_high))
 comm_reach = None
 
 
-list_mean_iterations_batch = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/Batchrun_EBZ/Batchrun_EBZsync_batch/list_mean_iterations_batch.npy')
 for N in range(agents_low, agents_high):
-    batchdata_zip = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/Batchrun_EBZ/Batchrun_EBZsync_batch/Batchrun_EBZsync_batch' + str(N) + '_commreachis' + str(comm_reach) + '.npz')
+    batchdata_zip = np.load('/Users/dirkvandenbiggelaar/Desktop/result_files/' + batch_folder + '/Batchrun_EBZsync_batch' + str(N) + '_commreachis' + str(comm_reach) + '.npz')
     batchdata = dict(zip(('profit_list_summed_over_time',
                       'number_of_buyers_over_time',
                       'number_of_sellers_over_time',

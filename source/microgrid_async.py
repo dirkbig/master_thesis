@@ -447,6 +447,7 @@ class MicroGrid_async(Model):
         """Environment proceeds a step after all agents took a step"""
         print("Step =", self.steps)
 
+
         """ lagging agents """
 
         # self.agents[3].lag = random.randint(0,1)
@@ -987,11 +988,10 @@ class MicroGrid_async(Model):
             self.revenue_list[agent.id] = agent.revenue
             self.payment_list[agent.id] = agent.payment
 
+
         """ Update time """
         self.steps += 1
         self.time += 1
-
-
 
         return self.E_total_surplus, self.E_demand, \
                self.buyers_pool, self.sellers_pool, self.w_storage_factors, \
@@ -1001,12 +1001,10 @@ class MicroGrid_async(Model):
                self.utilities_buyers, self.utilities_sellers, \
                self.soc_preferred_list, avg_soc_preferred, \
                self.E_consumption_list, self.E_production_list, \
-               self.E_demand_list, self.c_bidding_prices, self.E_surplus_list, self.E_total_supply_list,\
+               self.E_demand_list, self.c_bidding_prices, self.E_surplus_list, self.E_total_supply_list, \
                self.num_global_iteration, self.num_buyer_iteration, self.num_seller_iteration, \
-               self.profit_list, self.revenue_list, self.payment_list,\
+               self.profit_list, self.revenue_list, self.payment_list, \
                self.deficit_total, self.deficit_total_progress, self.E_actual_supplied_list, self.E_allocation_list
-
-
 
     def __repr__(self):
         return "Asynchronous Microgrid"

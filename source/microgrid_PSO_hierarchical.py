@@ -805,16 +805,18 @@ class MicroGrid_PSO_Hierarchical(Model):
         self.steps += 1
         self.time += 1
 
-        return self.E_total_surplus, self.E_total_supply, self.E_demand, \
+        return self.E_total_surplus, self.E_demand, \
                self.buyers_pool, self.sellers_pool, self.w_storage_factors, \
                self.c_nominal, self.w_nominal, \
-               self.R_prediction, self.E_supply_prediction, self.E_total_supply, self.R_total, \
-               self.actual_batteries, self.E_total_supply, self.E_demand, \
+               self.R_prediction, self.E_supply_prediction, self.R_total, \
+               self.actual_batteries, self.E_total_supply, \
                self.utilities_buyers, self.utilities_sellers, \
-               self.soc_preferred, avg_soc_preferred, \
-               self.E_demand_list, self.c_bidding_prices, self.E_surplus_list, \
+               self.soc_preferred_list, avg_soc_preferred, \
+               self.E_consumption_list, self.E_production_list, \
+               self.E_demand_list, self.c_bidding_prices, self.E_surplus_list, self.E_total_supply_list, \
                self.num_global_iteration, self.num_buyer_iteration, self.num_seller_iteration, \
-               self.profit_list
+               self.profit_list, self.revenue_list, self.payment_list, \
+               self.deficit_total, self.deficit_total_progress, self.E_actual_supplied_list, self.E_allocation_list
 
     def __repr__(self):
         return "PSO HIERARCHICAL OPTIMIZATION MODEL"

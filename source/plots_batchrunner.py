@@ -106,3 +106,5 @@ def thesis_soc_batch_plot(actual_batteries_list_over_time_batch, socs_preferred_
         N += + 1
 
         fig_thesis_soc_batch_plot.savefig('/Users/dirkvandenbiggelaar/Desktop/used_plots/fig_thesis_soc_batch_plot.png', bbox_inches='tight')
+
+def elapsed_time():

@@ -5,15 +5,29 @@ import sys
 import numpy as np
 from mesa import Agent, Model
 
-
-latency_list = np.array([1,0,0])
-
-
-id_non_lagging_agents = np.flatnonzero(latency_list == 0)
+E_surplus_list
+w_storage_factors
+E_total_supply = np.dot(E_surplus_list, w_storage_factors)
 
 
-print(id_non_lagging_agents)
 
+
+
+
+
+
+
+
+
+
+# latency_list = np.array([1,0,0])
+#
+#
+# id_non_lagging_agents = np.flatnonzero(latency_list == 0)
+#
+#
+# print(id_non_lagging_agents)
+#
 
 
 
