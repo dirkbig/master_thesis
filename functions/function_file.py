@@ -173,6 +173,11 @@ def get_preferred_soc(soc_preferred, battery_capacity, E_prediction_series, soc_
 
     return soc_preferred
 
+def get_preferred_soc_no_prediction(soc_preferred, battery_capacity, soc_actual):
+
+
+    return soc_preferred
+
 """"""
 def get_preferred_soc_new(batt_capacity_agent, soc_preferred, E_prediction):
     """determines the preferred state of charge for given agent/battery"""

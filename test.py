@@ -5,17 +5,18 @@ import sys
 import numpy as np
 from mesa import Agent, Model
 
-E_surplus_list
-w_storage_factors
-E_total_supply = np.dot(E_surplus_list, w_storage_factors)
+
+
+batt_low = 5
+batt_high = 15
+range_parameter_sweep = 10
+interval = (batt_high - batt_low) / range_parameter_sweep
+
+battery_range = np.arange(batt_low, batt_high, interval)
 
 
 
-
-
-
-
-
+print(battery_range)
 
 
 

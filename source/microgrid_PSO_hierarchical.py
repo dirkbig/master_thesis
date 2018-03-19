@@ -743,6 +743,9 @@ class MicroGrid_PSO_Hierarchical(Model):
         """settle all deals"""
         for agent in self.agents[:]:
             agent.payment = 0
+            agent.revenue = 0
+
+        for agent in self.agents[:]:
             if agent.classification == 'buyer':
                 """ buyers payings """
                 agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
@@ -763,11 +766,8 @@ class MicroGrid_PSO_Hierarchical(Model):
             self.actual_batteries[agent.id] = agent.soc_actual
 
         for agent in self.agents[:]:
-            agent.revenue = 0
             if agent.classification == 'seller':
                 """ sellers earnings """
-                if self.steps == 75:
-                    print('hello')
                 agent.soc_influx = agent.E_j_surplus * (1 - agent.w_j_storage_factor) + agent.E_j_returned_supply
                 agent.revenue = agent.E_j_supply/self.E_total_supply * total_payment # E_j_actual_supplied
                 agent.soc_actual += agent.soc_influx

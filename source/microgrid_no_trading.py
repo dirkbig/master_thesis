@@ -47,7 +47,7 @@ class HouseholdAgent(Agent):
 
         """agent characteristics"""
         self.id = unique_id
-        self.battery_capacity_n = 150                           # every household has an identical battery, for now
+        self.battery_capacity_n = 6                           # every household has an identical battery, for now
         self.pv_generation = random.uniform(0, 1)               # random.choice(range(15)) * pvgeneration
         self.consumption = random.uniform(0, 1)                 # random.choice(range(15)) * consumption
         self.classification = []
@@ -402,7 +402,6 @@ class MicroGrid_sync_not_trading(Model):
         self.utilities_sellers = np.zeros((N, 3))
         self.utilities_buyers = np.zeros((N, 4))
 
-        # random.shuffle(self.agents)
         for agent in self.agents[:]:
             self.E_consumption_list[agent.id] = agent.pv_generation
             self.E_production_list[agent.id] = agent.consumption
@@ -473,7 +472,7 @@ class MicroGrid_sync_not_trading(Model):
         self.R_total = 0
         self.R_prediction = 0
         self.w_nominal = 0
-
+        overflow_total = 0
 
         for agent in self.agents[:]:
             agent.E_i_allocation = 0
@@ -481,10 +480,11 @@ class MicroGrid_sync_not_trading(Model):
             agent.E_j_actual_supplied = 0
             agent.c_i_bidding_price = 0
             agent.w_j_storage_factor = 0
+
         self.deficit_total = 0
         self.supply_deals = np.zeros(N)
-        """settle all deals"""
 
+        """settle all deals"""
         for agent in self.agents[:]:
             agent.deficit = 0
             agent.influx = agent.pv_generation - agent.consumption
@@ -505,6 +505,7 @@ class MicroGrid_sync_not_trading(Model):
 
         self.deficit_total_progress += self.deficit_total
         self.battery_soc_total = sum(self.actual_batteries)
+        overflow_total += abs(agent.batt_overflow)
 
         """ Pull data out of agents """
         total_soc_pref = 0
@@ -536,7 +537,7 @@ class MicroGrid_sync_not_trading(Model):
                self.E_demand_list, self.c_bidding_prices, self.E_surplus_list, self.E_total_supply_list, \
                self.num_global_iteration, self.num_buyer_iteration, self.num_seller_iteration, \
                self.profit_list, self.revenue_list, self.payment_list, \
-               self.deficit_total, self.deficit_total_progress, self.E_actual_supplied_list, self.E_allocation_list
+               self.deficit_total, self.deficit_total_progress, self.E_actual_supplied_list, self.E_allocation_list, overflow_total
 
     def __repr__(self):
         return "no trading Microgrid"

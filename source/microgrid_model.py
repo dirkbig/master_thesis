@@ -27,9 +27,11 @@ blockchain = 'off'
 """ TRADING ON/NO-PREDICTION/SUPPLY-ALL  """
 """"""""""""""""""""""""""""""""""""""""""""
 
-# prediction = 'on'
-prediction = 'off'
+prediction = 'on'
+prediction_soc = 'on'
 
+# prediction = 'off'
+# prediction_soc = 'off'
 
 
 
@@ -70,7 +72,7 @@ class HouseholdAgent(Agent):
 
         """agent characteristics"""
         self.id = unique_id
-        self.battery_capacity_n = 15                            # every household has an identical battery, for now
+        self.battery_capacity_n = 6                            # every household has an identical battery, for now
         self.pv_generation = random.uniform(0, 1)               # random.choice(range(15)) * pvgeneration
         self.consumption = random.uniform(0, 1)                 # random.choice(range(15)) * consumption
         self.classification = []
@@ -104,7 +106,7 @@ class HouseholdAgent(Agent):
         self.predicted_E_consumption_list = np.zeros(self.horizon_agent)
         self.w_j_prediction = 0.5
         """Battery related"""
-        self.soc_actual = 0 #self.battery_capacity_n
+        self.soc_actual = self.battery_capacity_n
         self.soc_preferred = self.soc_actual * 0.7
         self.soc_gap = 0
         self.soc_influx = 0
@@ -181,8 +183,14 @@ class HouseholdAgent(Agent):
         self.current_step = steps
         battery_horizon = self.horizon_agent  # including current step
 
-        self.soc_preferred = get_preferred_soc(self.soc_preferred, self.battery_capacity_n,
+        if prediction_soc == 'on':
+            self.soc_preferred = get_preferred_soc(self.soc_preferred, self.battery_capacity_n,
                                                self.predicted_E_surplus_list, self.soc_actual, battery_horizon, self.predicted_E_consumption_list)
+        elif prediction_soc == 'off':
+            self.soc_preferred = get_preferred_soc_no_prediction(self.soc_preferred, self.battery_capacity_n,
+                                                   self.predicted_E_surplus_list, self.soc_actual, battery_horizon,
+                                                   self.predicted_E_consumption_list)
+
         self.soc_gap = self.soc_preferred - self.soc_actual
         self.soc_surplus = 0
         if self.soc_gap < 0:
@@ -522,6 +530,7 @@ class MicroGrid_sync(Model):
             iteration_global += 1
             if len(self.buyers_pool) != 0 and len(self.sellers_pool) != 0:
                 self.num_global_iteration += 1
+
             prev_c_nominal = self.c_nominal
             if self.E_total_supply == 0:
                 for agent in self.agents[:]:
@@ -778,12 +787,18 @@ class MicroGrid_sync(Model):
         self.deficit_total = 0
         self.supply_deals = np.zeros(N)
         total_payment = 0
+        total_revenue = 0
+        overflow_total = 0
 
         """settle all deals"""
         for agent in self.agents[:]:
             agent.deficit = 0
             agent.payment = 0
             agent.soc_influx = 0
+            agent.revenue = 0
+            agent.batt_overflow = 0
+
+        for agent in self.agents[:]:
             if agent.classification == 'buyer':
                 """ buyers costs """
                 self.supply_deals[agent.id] = agent.E_i_allocation
@@ -803,7 +818,7 @@ class MicroGrid_sync(Model):
                 total_payment += agent.payment
             self.actual_batteries[agent.id] = agent.soc_actual
 
-            agent.revenue = 0
+        for agent in self.agents[:]:
             if agent.classification == 'seller':
                 """ sellers earnings """
                 agent.soc_influx = agent.E_j_surplus * (1 - agent.w_j_storage_factor) + agent.E_j_returned_supply
@@ -819,16 +834,20 @@ class MicroGrid_sync(Model):
                 agent.revenue = agent.E_j_actual_supplied/sum(self.E_actual_supplied_list) * total_payment
                 if np.isnan(agent.revenue):
                     agent.revenue = 0
+                total_revenue += agent.revenue
                 agent.soc_actual += agent.soc_influx
 
                 """ HERE W IS UPDATED WRT OVERSUPPLY!"""
                 agent.w_j_storage_factor = agent.soc_influx / agent.E_j_surplus
 
             self.deficit_total += abs(agent.deficit)
-
             self.actual_batteries[agent.id] = agent.soc_actual
+
+            overflow_total += abs(agent.batt_overflow)
+
         if np.any(self.actual_batteries < 0) or np.any(self.actual_batteries > agent.battery_capacity_n):
             exit("negative battery soc, physics are broken")
+
 
         self.deficit_total_progress += self.deficit_total
         self.battery_soc_total = sum(self.actual_batteries)
@@ -874,5 +893,5 @@ class MicroGrid_sync(Model):
                self.E_demand_list, self.c_bidding_prices, self.E_surplus_list, self.E_total_supply_list,\
                self.num_global_iteration, self.num_buyer_iteration, self.num_seller_iteration, \
                self.profit_list, self.revenue_list, self.payment_list,\
-               self.deficit_total, self.deficit_total_progress, self.E_actual_supplied_list, self.E_allocation_list
+               self.deficit_total, self.deficit_total_progress, self.E_actual_supplied_list, self.E_allocation_list, overflow_total
 

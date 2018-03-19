@@ -1,7 +1,6 @@
 """ Particle swarm optimization """
-import numpy as np
-from pyswarm import pso
 from functions.function_file import *
+from functions.pso_custom import *
 from mesa import Agent, Model
 
 
@@ -135,7 +134,6 @@ class MicroGrid_PSO(Model):
             cost = sum(alpha_vector_pso) + np.dot(beta_vector_pso, x) + np.dot(gamma_vector_pso, x**2)
             return cost
 
-
         def Buyer_objectivefunction(x, *args_buyer):
             """ Costfunction """
             """ agents specific weights"""
@@ -170,8 +168,9 @@ class MicroGrid_PSO(Model):
 
 
         def constraints(x, *args):
-            """ inequality constraints"""
-            """ Power balance; sum of all produced energy is equal to its demand"""
+            """ inequality constraint,
+                Power balance; sum of all produced energy is equal to its demand to a certain extent,
+                batteries can ofcourse cope with a bit of inequality"""
             P_demand_pso = args[3]
             # N = args[4]
             # P_max = args[5]
@@ -187,7 +186,7 @@ class MicroGrid_PSO(Model):
             #     constraint_max_power[i] = min(P_max[i], P_prev[i] + P_ramp[i]) - x[i]
             #     constraint_min_power[i] = x[i] - max(P_min[i], P_prev[i] - P_ramp[i])
 
-            return  0.05 - abs((sum(x) - P_demand_pso)) #, constraint_max_power, constraint_min_power]
+            return  1 - abs((sum(x) - P_demand_pso)) #, constraint_max_power, constraint_min_power]
 
 
 
@@ -205,8 +204,12 @@ class MicroGrid_PSO(Model):
 
         """ close the gap by increasing production by including battery support """
         P_demand = sum(self.P_demand_list)
-        print('total demand,', P_demand)
-        print('total supply,', sum(self.P_supply_list))
+        P_supply = sum(self.P_supply_list)
+
+        if P_demand > P_supply:
+            P_deficit = P_supply - P_demand
+            P_demand = P_supply
+
 
         alpha_vector = self.alpha_vector
         beta_vector = self.beta_vector
@@ -222,6 +225,7 @@ class MicroGrid_PSO(Model):
             P_prev[agent.id] = agent.P_prev
             P_ramp[agent.id] = agent.ramp_max
 
+
         args = [alpha_vector, beta_vector, gamma_vector, P_demand, N, P_max, P_min, P_prev, P_ramp]
         lb = np.zeros(N)
         ub = np.ones(N)
@@ -231,30 +235,13 @@ class MicroGrid_PSO(Model):
             lb[agent.id] = agent.constraint_min
             ub[agent.id] = agent.constraint_max  # + agent.battery_ramp
 
-
-        x_opt, f_opt = pso(costfunction, lb, ub, ieqcons=[constraints], args=args, swarmsize = 2000, omega = 0.9, phip = 0.6, phig = 0.6, maxiter = 1000, minstep=1e-0, minfunc=1e-0) #
+        max_it = 1000
+        x_opt, f_opt, list_on_iteration, it = pso_custom(costfunction, lb, ub, ieqcons=[constraints], args=args, swarmsize = 2000, omega = 0.9, phip = 0.6, phig = 0.6, maxiter = max_it, minstep=1e-0, minfunc=1e-0) #
         results = x_opt
-
-        """ run pyswarm PSO"""
-        iteration = 0
-        # while True:
-        #     """ pyswarm"""
-        #     print(x_opt)
-        #     iteration += 1
-        #     if abs(sum(x_opt) - sum(self.P_demand_list)) < 0.1 or iteration > 3:
-        #         break
-        #     else:
-        #         pass
-        # results = x_opt
-
-        """ run pyswarmS PSO"""
-        # options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
-        # optimizer = ps.single.GlobalBestPSO(n_particles=10, dimensions=2, options=options)
-        # cost, pos = optimizer.optimize(costfunction, print_step=100, iters=1000, verbose=3)
-        # results = cost, pos
+        if it > max_it - 1:
+            x_opt = np.zeros(N)
 
 
-        print(results)
 
         for agent in self.agents[:]:
             agent.soc_influx = 0
@@ -284,9 +271,3 @@ class DataAgent_PSO(Agent):
     def __init__(self, model):
         super().__init__(self, model)
 
-        # self.results
-        # self.P_supply_list
-        # self.P_demand_list
-        # self.gen_output_list
-        # self.load_demand_list
-        #

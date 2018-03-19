@@ -406,7 +406,7 @@ class MicroGrid_PSO_non_Hierarchical(Model):
 
     def step(self, N, lambda_set):
         """Environment proceeds a step after all agents took a step"""
-        print("Step =", self.steps)
+        # print("Step =", self.steps)
 
 
         for agent in self.agents[:]:
@@ -628,11 +628,16 @@ class MicroGrid_PSO_non_Hierarchical(Model):
         self.deficit_total = 0
         self.supply_deals = np.zeros(N)
         total_payment = 0
+        overflow_total = 0
+
         """settle all deals"""
         for agent in self.agents[:]:
             agent.deficit = 0
             agent.payment = 0
             agent.soc_influx = 0
+            agent.revenue = 0
+
+        for agent in self.agents[:]:
             if agent.classification == 'buyer':
                 """ buyers costs """
                 self.supply_deals[agent.id] = agent.E_i_allocation
@@ -652,7 +657,7 @@ class MicroGrid_PSO_non_Hierarchical(Model):
                 total_payment += agent.payment
             self.actual_batteries[agent.id] = agent.soc_actual
 
-            agent.revenue = 0
+        for agent in self.agents[:]:
             if agent.classification == 'seller':
                 """ sellers earnings """
                 agent.soc_influx = agent.E_j_surplus * (1 - agent.w_j_storage_factor) + agent.E_j_returned_supply
@@ -674,7 +679,7 @@ class MicroGrid_PSO_non_Hierarchical(Model):
                 agent.w_j_storage_factor = agent.soc_influx / agent.E_j_surplus
 
             self.deficit_total += abs(agent.deficit)
-
+            overflow_total += abs(agent.batt_overflow)
             self.actual_batteries[agent.id] = agent.soc_actual
         if np.any(self.actual_batteries < 0) or np.any(self.actual_batteries > agent.battery_capacity_n):
             exit("negative battery soc, physics are broken")
@@ -721,7 +726,7 @@ class MicroGrid_PSO_non_Hierarchical(Model):
                self.E_demand_list, self.c_bidding_prices, self.E_surplus_list, self.E_total_supply_list, \
                self.num_global_iteration, self.num_buyer_iteration, self.num_seller_iteration, \
                self.profit_list, self.revenue_list, self.payment_list, \
-               self.deficit_total, self.deficit_total_progress, self.E_actual_supplied_list, self.E_allocation_list
+               self.deficit_total, self.deficit_total_progress, self.E_actual_supplied_list, self.E_allocation_list, overflow_total
 
     def __repr__(self):
         return "PSO NON-HIERARCHICAL OPTIMIZATION MODEL"

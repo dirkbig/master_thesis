@@ -15,7 +15,7 @@ if model == 'async':
      from source.microgrid_async import *
 
 from blockchain.smartcontract import *
-from source.plots_normalrunner import *
+from plots.plots_normalrunner import *
 import os
 
 np.seterr(all='warn')

@@ -4,9 +4,9 @@ from mesa import Agent, Model
 from blockchain.smartcontract import *
 from functions.function_file import *
 
-##########################
-### ASYNCHRONOUS MODEL ###
-##########################
+#########################
+### SYNCHRONOUS MODEL ###
+#########################
 
 """
 Decide in microgrid_model
@@ -20,15 +20,15 @@ Decide in microgrid_model
 """"""""""""""""""""""""""
 """ BLOCKCHAIN ON/OFF  """
 """"""""""""""""""""""""""
-blockchain = 'on'
-# blockchain = 'off'
+# blockchain = 'on'
+blockchain = 'off'
 
 """"""""""""""""""""""""""""""""""""""""""""
 """ TRADING ON/NO-PREDICTION/SUPPLY-ALL  """
 """"""""""""""""""""""""""""""""""""""""""""
 
-prediction = 'on'
-#prediction = 'off'
+# prediction = 'on'
+prediction = 'off'
 
 
 
@@ -37,16 +37,17 @@ prediction = 'on'
 """ INIT   """
 """"""""""""""
 starting_point = 0
-stopping_point = 7200 - starting_point - 200
+stopping_point = 7200 - starting_point - 100
 step_day = 1440
 days = 5
 
-step_time =  200
+step_time =  10
 total_steps = step_day*days
 sim_steps = int(total_steps/step_time)
 
 average_consumption_household = 4000/365 #kWh/day
 average_production_solarpanel = 15
+comm_radius = 10
 
 step_list = np.zeros([sim_steps])
 
@@ -63,14 +64,13 @@ e_supply = 0.1
 
 
 class HouseholdAgent(Agent):
-
     """All microgrid household(agents) should be generated here; initialisation of prosumer tools """
-    def __init__(self, unique_id, model, w3, addr, agents_set, N, number_of_lagging_agents):
+    def __init__(self, unique_id, model, w3, addr, battery_capacity_agent_sim):
         super().__init__(unique_id, model)
 
         """agent characteristics"""
         self.id = unique_id
-        self.battery_capacity_n = 15                            # every household has an identical battery, for now
+        self.battery_capacity_n = battery_capacity_agent_sim       # every household has an identical battery, for now
         self.pv_generation = random.uniform(0, 1)               # random.choice(range(15)) * pvgeneration
         self.consumption = random.uniform(0, 1)                 # random.choice(range(15)) * consumption
         self.classification = []
@@ -98,9 +98,10 @@ class HouseholdAgent(Agent):
 
         """prediction"""
         self.current_step = 0
-        self.max_horizon =  1440
+        self.max_horizon =  700
         self.horizon_agent = min(self.max_horizon, sim_steps - self.current_step)  # including current step
         self.predicted_E_surplus_list = np.zeros(self.horizon_agent)
+        self.predicted_E_consumption_list = np.zeros(self.horizon_agent)
         self.w_j_prediction = 0.5
         """Battery related"""
         self.soc_actual = 0 #self.battery_capacity_n
@@ -146,31 +147,30 @@ class HouseholdAgent(Agent):
         self.E_j_actual_supplied = 0
         self.E_j_returned_supply = 0
 
-        """ Asynchronous """
-        self.latency_list = np.ones(N)
-        self.lag = 0
-
-
-    def step(self, big_data_file_per_step, big_data_file, E_total_surplus_prediction_per_step, horizon, prediction_range, steps, w3, contract_instance, agents_set, N):           # big_data_file = np.zeros((N, step_time, 3))
+    def step(self, big_data_file_per_step, big_data_file, E_total_surplus_prediction_per_step, horizon, prediction_range, steps, w3, contract_instance, N):           # big_data_file = np.zeros((N, step_time, 3))
         """Agent optimization step, what ever specific agents do on during step"""
 
         self.E_j_actual_supplied = 0
         self.E_j_returned_supply = 0
 
         """real time data"""
-        self.consumption   = big_data_file_per_step[self.id, 0]           # import load file
-        self.pv_generation = big_data_file_per_step[self.id, 1]           # import generation file
+        self.consumption   = big_data_file_per_step[self.id][0]           # import load file
+        self.pv_generation = big_data_file_per_step[self.id][1]           # import generation file
 
         """ agents personal prediction, can be different per agent (difference in prediction quality?)"""
         self.horizon_agent = min(self.max_horizon, sim_steps - self.current_step - 1)  # including current step
         self.predicted_E_surplus_list = np.zeros(self.horizon_agent)
+        self.predicted_E_consumption_list = np.zeros(self.horizon_agent)
 
+        """ Prediction of personal surplys"""
         for i in range(self.horizon_agent):
             self.predicted_E_surplus_list[i] = big_data_file[steps + i][self.id][0] \
-                                               - big_data_file[steps + i][self.id][1]  # load - production
+                                               - big_data_file[steps + i][self.id][1]
+            self.predicted_E_consumption_list[i] = big_data_file[steps + i][self.id][0]
             if self.predicted_E_surplus_list[i] < 0:
                 self.predicted_E_surplus_list[i] = 0
 
+        """ get an arbitrary prediction on w"""
         self.w_prediction = calc_w_prediction() # has to go to agent
         self.E_prediction_agent = calc_E_surplus_prediction(self.predicted_E_surplus_list,
                                                             self.horizon_agent, N, prediction_range, steps) # from surplus
@@ -182,7 +182,7 @@ class HouseholdAgent(Agent):
         battery_horizon = self.horizon_agent  # including current step
 
         self.soc_preferred = get_preferred_soc(self.soc_preferred, self.battery_capacity_n,
-                                               self.predicted_E_surplus_list, self.soc_actual, battery_horizon)
+                                               self.predicted_E_surplus_list, self.soc_actual, battery_horizon, self.predicted_E_consumption_list)
         self.soc_gap = self.soc_preferred - self.soc_actual
         self.soc_surplus = 0
         if self.soc_gap < 0:
@@ -199,7 +199,6 @@ class HouseholdAgent(Agent):
         """define buyers/sellers classification"""
         [classification, surplus_agent, demand_agent] = define_pool(self.consumption, self.pv_generation, self.soc_gap, self.soc_surplus, self.charge_rate, self.discharge_rate)
         self.classification = classification
-
         self.batt_available = self.battery_capacity_n - self.soc_actual
 
         """Define players pool and let agents act according to battery states"""
@@ -262,67 +261,48 @@ class HouseholdAgent(Agent):
 
         """ Setter on agent characteristics
             Broadcast agents promise for this time-step"""
-        if self.lag != 1:
-            if self.classification == 'buyer':
-                c_i_broadcast = self.c_i_bidding_price
-                E_demand_broadcast = self.E_i_demand
-                self.w_j_storage_factor = 0
-                self.E_j_surplus = 0
-                self.promise_on_bc = setter_promise_buy(w3, contract_instance, self.address_agent, E_demand_broadcast, c_i_broadcast, timestamp)
-            if self.classification == 'seller':
-                w_j_broadcast = self.w_j_storage_factor
-                E_surplus_broadcast = self.E_j_surplus
-                self.c_i_bidding_price = 0
-                self.E_i_demand = 0
-                self.promise_on_bc = setter_promise_sell(w3, contract_instance, self.address_agent, E_surplus_broadcast, w_j_broadcast, timestamp)
-            if self.classification == 'passive':
-                self.w_j_storage_factor = 0
-                self.E_j_surplus = 0
-                self.c_i_bidding_price = 0
-                self.E_i_demand = 0
-                E_demand_broadcast = self.E_i_demand
-                c_i_broadcast = self.c_i_bidding_price
-                self.promise_on_bc = setter_promise_buy(w3, contract_instance, self.address_agent, E_demand_broadcast, c_i_broadcast, timestamp)
+        if self.classification == 'buyer':
+            c_i_broadcast = self.c_i_bidding_price
+            E_demand_broadcast = self.E_i_demand
+            self.w_j_storage_factor = 0
+            self.E_j_surplus = 0
+            self.promise_on_bc = setter_promise_buy(w3, contract_instance, self.address_agent, E_demand_broadcast, c_i_broadcast, timestamp)
+        if self.classification == 'seller':
+            w_j_broadcast = self.w_j_storage_factor
+            E_surplus_broadcast = self.E_j_surplus
+            self.c_i_bidding_price = 0
+            self.E_i_demand = 0
+            self.promise_on_bc = setter_promise_sell(w3, contract_instance, self.address_agent, E_surplus_broadcast, w_j_broadcast, timestamp)
 
-                """ 
-                >> only integers in smart-contract... store promises in hash format? 
-        		    NO: other agents recieve promises (needed information for opti) over blockchain, cannot be obscured?
-        		    YES: promise is only a requirement to trigger smart-contract, communication of those values are still communicated among peers off-chain.
-        	    Decide on this.."""
+
 
         return
+        """ 
+        >> only integers in smart-contract... store promises in hash format? 
+		    NO: other agents recieve promises (needed information for opti) over blockchain, cannot be obscured?
+		    YES: promise is only a requirement to trigger smart-contract, communication of those values are still communicated among peers off-chain.
+	    Decide on this.."""
 
 
-    def settlement_of_payments(self, w3, contract_instance, N, step):
+    def settlement_of_payments(self, w3, contract_instance, N, timestamp):
         if blockchain == 'off':
             return
 
-        timestamp = step
         """Listen to BC transactions on relevant promises of this agent
            IFF promise == final offer then smart contract is triggered to pay"""
-        if self.lag != 1:
-            if self.classification == 'buyer':
-                # promise_on_bc = contract_instance.promiseOfbuy(self.address_agent)
-                # print(promise_on_bc, self.payment)
-                self.balance_on_bc = setter_burn(w3, contract_instance, self.address_agent, int(self.payment), timestamp)
-                self.revenue = 0
-            if self.classification == 'seller':
-                # promise_on_bc = contract_instance.promiseOfsell(self.address_agent)
-                # print(promise_on_bc, self.payment)
-                self.balance_on_bc = setter_mint(w3, contract_instance, self.address_agent, int(self.revenue), timestamp)
-                self.payment = 0
+        if self.classification == 'buyer':
+            # promise_on_bc = contract_instance.promiseOfbuy(self.address_agent)
+            # print(promise_on_bc, self.payment)
+            self.balance_on_bc = setter_burn(w3, contract_instance, self.address_agent, int(self.payment), timestamp)
+            self.revenue = 0
+        if self.classification == 'seller':
+            # promise_on_bc = contract_instance.promiseOfsell(self.address_agent)
+            # print(promise_on_bc, self.payment)
+            self.balance_on_bc = setter_mint(w3, contract_instance, self.address_agent, int(self.revenue), timestamp)
+            self.payment = 0
+
+
         return
-
-    def decide_latency(self, w3, contract_instance, N, steps):
-
-        latency_list = np.ones(N)
-        if self.lag != 1:
-            for agent in range(N):
-                address_action_lag, address_promise_lag = check_timestamp(w3, contract_instance, w3.eth.accounts[agent], steps)
-                latency_list[agent] = address_promise_lag
-                if steps == 0:
-                    latency_list[3] = 1
-        return latency_list
 
 
     def __repr__(self):
@@ -331,15 +311,14 @@ class HouseholdAgent(Agent):
 
 """Microgrid model environment"""
 
-class MicroGrid_async(Model):
-    print("Asynchronous Model")
+class MicroGrid_sync_param_sweep(Model):
 
     """create environment in which agents can operate"""
-
-    def __init__(self, big_data_file, starting_point, N, number_of_lagging_agents, lambda_set):
-
+    def __init__(self, big_data_file, starting_point, N, lambda_set_run_mg, parameter_sweep_dict_run_mg, sweep_num):
+        print("Synchronous Model")
         """Initialization and automatic creation of agents"""
-
+        self.parameter_sweep_dict_run_mg = parameter_sweep_dict_run_mg
+        self.sweep_num = sweep_num
         self.steps = starting_point
         self.time = starting_point
 
@@ -394,10 +373,10 @@ class MicroGrid_async(Model):
         if self.prediction_range <= 0:
             self.prediction_range = 1
 
+        self.E_supply_prediction_list = np.zeros(N)
         self.E_total_surplus_prediction_per_step = np.zeros(self.prediction_range)
         self.utilities_sellers = np.zeros((N, 3))
         self.utilities_buyers = np.zeros((N, 4))
-
 
         """ compile and deploy smart-contract """
         self.w3 = None
@@ -409,12 +388,23 @@ class MicroGrid_async(Model):
                                     self.event_CreatedEnergy, self.event_InitialisedContract = deploy_SC(contract_interface, self.w3, creator_address)
             setter_initialise_tokens(self.w3, self.contract_instance, deployment_tx_hash, creator_address, self.event_InitialisedContract)
 
+        """ WHAT IS BEING SWEEPED? """
+        """"""""""""""""""""""""""""""
+
+        """ sweep dictionary: Batteries"""
+
+        batt_low, batt_high, range_parameter_sweep = self.parameter_sweep_dict_run_mg['battery_capacity']
+        interval = (batt_high - batt_low)/range_parameter_sweep
+        battery_range = np.arange(batt_low, batt_high, interval)
+        print(battery_range)
+        battery_capacity_agent_sim = battery_range[sweep_num]
+        print('battery_capacity_agent_sim', battery_capacity_agent_sim)
+
         """create a set of N agents with activations schedule and e = unique id"""
         for i in range(self.num_households):
             addr = i + 1
-            agent = HouseholdAgent(i, self, self.w3, addr, self.agents, N, number_of_lagging_agents)
+            agent = HouseholdAgent(i, self, self.w3, addr, battery_capacity_agent_sim)
             self.agents.append(agent)
-
 
         if blockchain == 'on':
             for agent in self.agents[:]:
@@ -439,35 +429,9 @@ class MicroGrid_async(Model):
         self.revenue_list = np.zeros(N)
         self.payment_list = np.zeros(N)
 
-
-        self.number_of_lagging_agents = number_of_lagging_agents
-
     def step(self, N, lambda_set):
         """Environment proceeds a step after all agents took a step"""
         print("Step =", self.steps)
-
-
-        """ lagging agents """
-
-        # self.agents[3].lag = random.randint(0,1)
-
-        # lagging_agents = 0
-        # while lagging_agents <= int(N/2):
-        #     for agent in self.agents[:]:
-        #         random_number = random.randint(0,10)
-        #         if random_number > 9:
-        #             agent.lag = 1
-        #             lagging_agents += 1
-
-        """ Agent 3 is lagging and thus left out after a certain time"""
-        self.number_of_lagging_agents
-
-        if 300 < self.steps <  400:
-            for i in range(int(self.number_of_lagging_agents)):
-                self.agents[3 + i].lag = 1
-
-
-
         for agent in self.agents[:]:
             self.actual_batteries[agent.id] = agent.soc_actual
 
@@ -504,7 +468,7 @@ class MicroGrid_async(Model):
 
         """Take initial """
         for agent in self.agents[:]:
-            agent.step(self.big_data_file[self.steps], self.big_data_file, self.E_total_surplus_prediction_per_step, horizon, self.prediction_range, self.steps, self.w3, self.contract_instance, self.agents, N)
+            agent.step(self.big_data_file[self.steps], self.big_data_file, self.E_total_surplus_prediction_per_step, horizon, self.prediction_range, self.steps, self.w3, self.contract_instance, N)
             if agent.classification == 'buyer':
                 """Level 1 init game among buyers"""
                 self.buyers_pool.append(agent.id)
@@ -552,7 +516,8 @@ class MicroGrid_async(Model):
         self.R_prediction = 0
 
         """ Prediction function"""
-        self.R_prediction, self.E_supply_prediction, self.E_supply_prediction_list, w_prediction_avg = prediction_base_function(self.R_total,
+        self.R_prediction, self.E_supply_prediction, self.E_supply_prediction_list, w_prediction_avg \
+                                                                             = prediction_base_function(self.R_total,
                                                                                self.big_data_file,
                                                                                horizon,
                                                                                self.prediction_range,
@@ -561,31 +526,9 @@ class MicroGrid_async(Model):
                                                                                self.steps)
 
         """Global optimization"""
-        self.R_direct_list = np.zeros(N)
+        payment_to_seller = np.zeros(N)
         """global level"""
-
         epsilon_buyers_list = []
-
-
-
-        """ Latency checking at smart-contract time-stamping service """
-        for agent in self.agents[:]:
-            if agent.lag == 0:
-                agent.latency_list = agent.decide_latency(self.w3, self.contract_instance, N, self.steps)
-
-                if self.steps == 2:
-                    pass
-
-                agent.id_lagging_agents = np.nonzero(agent.latency_list)[0]
-                # print('lagging agent', agent.id_lagging_agents)
-
-                """ filters zeros out of latency_list; returns array with their indices:
-                    the id's of non-lagging agents"""
-                agent.id_non_lagging_agents = np.flatnonzero(agent.latency_list == 0)
-                # print(agent.id_non_lagging_agents)
-
-            if agent.lag == 1:
-                pass
 
         while True:
             iteration_global += 1
@@ -607,59 +550,36 @@ class MicroGrid_async(Model):
                 (which will be more expensive than buying from Alice) needs to be minimised. 
                 Utility of buyer should be: (total energy demand - the part allocated from alice(c_i) ) * c_macro
                 then allocation will be increased by offering more money"""
-
-
                 random.shuffle(self.agents)
                 for agent in self.agents[:]:
-                    if agent.classification == 'buyer' and agent.classification != 'seller' and agent.lag != 1:
-                        " agents communication is not jammed or latent"
-                        """ Asynchronous mask
-                            Agents know through time-stamps on smart-contract which other agents have lag
-                            Then agent decides to kick lagging agent out of optimization"""
-
-                        """ mask out the lagging agent by checking time-stamps
-                            Build masks for asynchronous network or topology, build optimization information 
-                            from only non-lagging agent information. """
-                        masked_E_total_supply = self.E_total_supply_list[agent.id_non_lagging_agents].sum()
-                        masked_c_bidding_price_others = self.c_bidding_prices[agent.id_non_lagging_agents].sum()
-
-                        print(agent.id_non_lagging_agents)
+                    if agent.classification == 'buyer' and agent.classification != 'seller':
                         """preparation for update"""
                         prev_bid = agent.c_i_bidding_price
                         self.E_total_supply = sum(self.E_total_supply_list)
                         agent.bidding_prices_others = bidding_prices_others(self.c_bidding_prices, agent.c_i_bidding_price)
 
-
-
                         """update c_i"""
                         sol_buyer, sol_buyer.x[0] = buyers_game_optimization(agent.id,
                                                                              agent.E_i_demand,
-                                                                             masked_E_total_supply,
+                                                                             self.E_total_supply,
                                                                              c_macro,
                                                                              agent.c_i_bidding_price,
-                                                                             masked_c_bidding_price_others,
+                                                                             agent.bidding_prices_others,
                                                                              agent.batt_available,
                                                                              agent.soc_gap,
                                                                              lambda_set, agent.actuator_sat_ESS_charge)
                         agent.c_i_bidding_price =  sol_buyer.x[0]
                         if np.isnan(agent.c_i_bidding_price):
                             agent.c_i_bidding_price = 0
+                            # exit("c_i is NaN")
 
-                        # " agents communication is jammed or latent"
-                        # if agent.lag == 1:
-                        #     """ does not participate in trade! """
-                        #     # agent.c_i_bidding_price = c_i_bidding_price_list_previous_timestep[agent.id]
-                        #     agent.c_i_bidding_price = 0
-                        #     self.c_bidding_prices[agent.id] = agent.c_i_bidding_price
-                        #
-                        #     pass
 
                         """ update values """
                         self.c_bidding_prices[agent.id] = agent.c_i_bidding_price
                         self.E_allocation_list[agent.id] = agent.E_i_allocation
                         agent.bidding_prices_others = bidding_prices_others(self.c_bidding_prices, agent.c_i_bidding_price)
                         agent.E_i_allocation = allocation_i(self.E_total_supply, agent.c_i_bidding_price, agent.bidding_prices_others)
-                        self.R_direct_list[agent.id] = agent.c_i_bidding_price * agent.E_i_allocation
+                        payment_to_seller[agent.id] = agent.c_i_bidding_price * agent.E_i_allocation
                         agent.utility_i, demand_gap, utility_demand_gap, utility_costs = calc_utility_function_i(agent.E_i_demand,
                                                                                                                  self.E_total_supply,
                                                                                                                  agent.c_i_bidding_price,
@@ -673,14 +593,12 @@ class MicroGrid_async(Model):
                             # sys.exit("utility_i calculation does not match with optimization code")
                             pass
 
-
                         """ tolerances """
                         new_bid = agent.c_i_bidding_price
                         agent.tol_buyer.append(new_bid - prev_bid)
                         tolerance_buyers[agent.id] = abs(new_bid - prev_bid)
                     else:
                         self.c_bidding_prices[agent.id] = 0
-
 
                 epsilon_buyers_game = max(abs(tolerance_buyers))
                 epsilon_buyers_list.append(epsilon_buyers_game)
@@ -691,7 +609,7 @@ class MicroGrid_async(Model):
                     self.c_nominal = sum(self.E_allocation_list * self.c_bidding_prices) / sum(self.E_allocation_list)
                     if sum(self.E_allocation_list) == 0:
                         self.c_nominal = 0
-                    self.R_total = sum(self.R_direct_list)
+                    self.R_total = sum(payment_to_seller)
                     for agent in self.agents[:]:
                         self.E_allocation_total = agent.E_i_allocation
                     tolerance_buyers[:] = 0
@@ -708,6 +626,7 @@ class MicroGrid_async(Model):
                     pass
 
             """ Determine global tolerances """
+            self.c_nominal = sum(self.E_allocation_list * self.c_bidding_prices) / sum(self.E_allocation_list)
             if sum(self.E_allocation_list) == 0:
                 self.c_nominal = 0
             if np.isnan(self.c_nominal):
@@ -731,51 +650,36 @@ class MicroGrid_async(Model):
 
                 random.shuffle(self.agents)
                 for agent in self.agents[:]:
-                    if agent.classification == 'seller' and agent.lag != 1:
+                    if agent.classification == 'seller':
                         """ Sellers optimization game, plugging in bidding price to decide on sharing factor.
                         Is bidding price lower than that the smart-meter expects to sell on a later time period?
                         smart-meter needs a prediction on the coming day. Either use the load data or make a predicted model on 
                         all aggregated load data """
-
-                        """ Asynchronous mask
-                            Agents know through time-stamps on smart-contract which other agents have lag
-                            Then agent decides to kick lagging agent out of optimization"""
-
-                        """ mask out the lagging agent by checking time-stamps """
-                        """ Build masks for asynchronous network or topology, build optimization information 
-                            from only non-lagging agent information. """
-
-                        masked_R_total = self.R_direct_list[agent.id_non_lagging_agents].sum()
-                        masked_E_supply_others_direct = self.E_total_supply_list[agent.id_non_lagging_agents].sum() - self.E_total_supply_list[agent.id]
-                        masked_E_supply_others_prediction = (self.E_supply_prediction_list[agent.id_non_lagging_agents].sum() - self.E_supply_prediction_list[agent.id]) * w_prediction_avg
-
                         prev_wj = agent.w_j_storage_factor
                         agent.bidding_prices_others = sum(self.c_bidding_prices)
+                        """ Optimization """
 
-
-                        """ agent is lagging"""
                         if prediction == 'on':
                             sol_seller, \
                             sol_seller.x[0], \
                             utility_seller_function = sellers_game_optimization(agent.id,
                                                                                     agent.E_j_surplus,
-                                                                                    masked_R_total,
-                                                                                    masked_E_supply_others_direct,
+                                                                                    self.R_total,
+                                                                                    agent.E_supply_others,
                                                                                     self.R_prediction,
-                                                                                    masked_E_supply_others_prediction,
+                                                                                    agent.E_supply_others_prediction,
                                                                                     agent.w_j_storage_factor,
                                                                                     agent.E_prediction_agent,
                                                                                     agent.lower_bound_on_w_j,
-                                                                                    lambda_set,
-                                                                                    agent.actuator_sat_ESS_discharge)
+                                                                                    lambda_set, agent.actuator_sat_ESS_discharge)
 
                             agent.w_j_storage_factor = sol_seller.x[0]
                             prediction_utility, direct_utility, agent.utility_j = calc_utility_function_j(agent.id,
                                                                                                         agent.E_j_surplus,
-                                                                                                        masked_R_total,
-                                                                                                        masked_E_supply_others_direct,
+                                                                                                        self.R_total,
+                                                                                                        agent.E_supply_others,
                                                                                                         self.R_prediction,
-                                                                                                        masked_E_supply_others_prediction,
+                                                                                                        agent.E_supply_others_prediction,
                                                                                                         agent.w_j_storage_factor,
                                                                                                         agent.E_prediction_agent, lambda_set)
 
@@ -792,10 +696,10 @@ class MicroGrid_async(Model):
                             sol_seller.x[0], \
                             utility_seller_function = sellers_game_optimization_no_prediction(agent.id,
                                                                                                 agent.E_j_surplus,
-                                                                                                masked_R_total,
-                                                                                                masked_E_supply_others_direct,
+                                                                                                self.R_total,
+                                                                                                agent.E_supply_others,
                                                                                                 self.R_prediction,
-                                                                                                masked_E_supply_others_prediction,
+                                                                                                agent.E_supply_others_prediction,
                                                                                                 agent.w_j_storage_factor,
                                                                                                 agent.E_prediction_agent,
                                                                                                 agent.lower_bound_on_w_j,
@@ -804,10 +708,6 @@ class MicroGrid_async(Model):
 
                             agent.utility_seller = [utility_seller_function, None, None]
                         self.utilities_sellers[agent.id] = agent.utility_seller
-
-                        if agent.lag == 1:
-                            """ agent is lagging"""
-                            pass
 
                         """"""""""""""""""""""""""""""
                         """ In case of ALL-supply """
@@ -895,10 +795,14 @@ class MicroGrid_async(Model):
 
         """settle all deals"""
         for agent in self.agents[:]:
-            agent.deficit = 0
-            agent.payment = 0
-            agent.soc_influx = 0
-            if agent.classification == 'buyer' and agent.lag != 1:
+            agent.E_i_allocation = 0
+            agent.E_j_supply = 0
+            agent.E_j_actual_supplied = 0
+            agent.c_i_bidding_price = 0
+            agent.w_j_storage_factor = 0
+
+        for agent in self.agents[:]:
+            if agent.classification == 'buyer':
                 """ buyers costs """
                 self.supply_deals[agent.id] = agent.E_i_allocation
                 agent.soc_influx = agent.E_i_allocation - agent.consumption + agent.pv_generation
@@ -918,8 +822,7 @@ class MicroGrid_async(Model):
             self.actual_batteries[agent.id] = agent.soc_actual
 
         for agent in self.agents[:]:
-            agent.revenue = 0
-            if agent.classification == 'seller' and agent.lag != 1:
+            if agent.classification == 'seller':
                 """ sellers earnings """
                 agent.soc_influx = agent.E_j_surplus * (1 - agent.w_j_storage_factor) + agent.E_j_returned_supply
                 if agent.soc_actual + agent.soc_influx < 0:
@@ -939,30 +842,11 @@ class MicroGrid_async(Model):
                 """ HERE W IS UPDATED WRT OVERSUPPLY!"""
                 agent.w_j_storage_factor = agent.soc_influx / agent.E_j_surplus
 
-
-            if agent.lag == 1:
-                """ lagging agent is excluded from trade and thus isolated"""
-                agent.soc_influx = agent.pv_generation - agent.consumption
-                if agent.soc_actual + agent.soc_influx < 0:
-                    """ battery is depleting """
-                    agent.deficit = abs(agent.soc_actual + agent.soc_influx)
-                    agent.soc_influx = agent.E_i_demand + agent.deficit
-                if agent.soc_actual + agent.soc_influx > agent.battery_capacity_n:
-                    """ battery is overflowing """
-                    real_influx = agent.soc_influx
-                    agent.soc_influx = agent.battery_capacity_n - agent.soc_actual
-                    agent.batt_overflow = real_influx - agent.soc_influx
-
             self.deficit_total += abs(agent.deficit)
-            self.actual_batteries[agent.id] = agent.soc_actual
             overflow_total += abs(agent.batt_overflow)
-
+            self.actual_batteries[agent.id] = agent.soc_actual
         if np.any(self.actual_batteries < 0) or np.any(self.actual_batteries > agent.battery_capacity_n):
             exit("negative battery soc, physics are broken")
-
-        if np.any(self.actual_batteries) < 0:
-            print("negative battery soc")
-
 
         self.deficit_total_progress += self.deficit_total
         self.battery_soc_total = sum(self.actual_batteries)
@@ -979,7 +863,7 @@ class MicroGrid_async(Model):
         """ Blockchain """
         if blockchain == 'on':
             for agent in self.agents[:]:
-                agent.settlement_of_payments(self.w3, self.contract_instance, N, self.steps, )
+                agent.settlement_of_payments(self.w3, self.contract_instance, self.steps)
 
         self.profit_list = np.zeros(N)
         """ Costs on this step"""
@@ -991,7 +875,6 @@ class MicroGrid_async(Model):
             self.profit_list[agent.id] = agent.profit
             self.revenue_list[agent.id] = agent.revenue
             self.payment_list[agent.id] = agent.payment
-
 
         """ Update time """
         self.steps += 1
@@ -1005,11 +888,8 @@ class MicroGrid_async(Model):
                self.utilities_buyers, self.utilities_sellers, \
                self.soc_preferred_list, avg_soc_preferred, \
                self.E_consumption_list, self.E_production_list, \
-               self.E_demand_list, self.c_bidding_prices, self.E_surplus_list, self.E_total_supply_list, \
+               self.E_demand_list, self.c_bidding_prices, self.E_surplus_list, self.E_total_supply_list,\
                self.num_global_iteration, self.num_buyer_iteration, self.num_seller_iteration, \
-               self.profit_list, self.revenue_list, self.payment_list, \
+               self.profit_list, self.revenue_list, self.payment_list,\
                self.deficit_total, self.deficit_total_progress, self.E_actual_supplied_list, self.E_allocation_list, overflow_total
-
-    def __repr__(self):
-        return "Asynchronous Microgrid"
 

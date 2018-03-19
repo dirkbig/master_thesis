@@ -9,6 +9,7 @@ import seaborn as sns
 import numpy as np
 import matplotlib.dates as md
 import datetime as dt
+fig_width = (10,3)
 
 """ kleur TU-DELFT bies: 00A6D6"""
 sns.set()
@@ -21,7 +22,9 @@ print(factor_revenue_range)
 
 """ in a grid of 10 agents all supplying equal energy"""
 
-fig_noprediction_utilityplot = plt.figure(figsize=(5,2), dpi=500)
+fig_noprediction_utilityplot = plt.figure(figsize=(fig_width), dpi=250)
+plt.tight_layout(w_pad=0.2, h_pad=0.4)
+
 ax1 = fig_noprediction_utilityplot.add_subplot(111)
 
 plot = 0
@@ -36,7 +39,7 @@ for j in range(len(factor_revenue_range)):
     utility_j_over_time = np.zeros(x)
     degradation = np.zeros(x)
     revenue = np.zeros(x)
-    if plot > 5:
+    if plot > 8:
         break
     for i in range(len(w_range)):
         w = w_range[i]
@@ -45,9 +48,11 @@ for j in range(len(factor_revenue_range)):
         revenue[i]
     ax1.plot(w_range, utility_j_over_time, label='factor = ' + str(factor_revenue))
 
-ax1.set_xlabel('sharing factor w')
-ax1.set_ylabel('utility seller U j')
+ax1.set_xlabel('sharing factor', fontsize=8)
+ax1.set_ylabel('utility seller', fontsize=8)
 
-ax1.legend(loc='lower right', bbox_to_anchor=(1, 1), ncol=3, fontsize=6)
+ax1.legend(loc='lower right', bbox_to_anchor=(1, 1), ncol=4, fontsize=6)
 
+plt.subplots_adjust(wspace=0.1, hspace=0.5)
+plt.show()
 fig_noprediction_utilityplot.savefig('/Users/dirkvandenbiggelaar/Desktop/used_plots/fig_noprediction_utilityplot.png', bbox_inches='tight')
