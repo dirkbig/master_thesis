@@ -6,4 +6,5 @@ This is a microgrid model with a distributed trading alghorithm running that coo
 
 Charging/discharging is reimbursed by minting/burning tokens on a smart-contract, currently deployed on an Ethereum test-network. Minimal information is exchanged between agents. The minimum of information that is really needed is logged in the public ledger, to etch-in-rock the promises agents made when exchanging information. This promise-keeping mechanism counters artificial raising of prices in the grid and helps keep stability by ensuring that demand/supply is kept true. Also the smart-contracts serves as a time-staming server to assist distributed optimization in an asycnhronous network.
 
-See high-level diagram.
+See high-level diagram of project structure
+
