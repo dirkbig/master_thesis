@@ -1,3 +1,5 @@
+See 'dev_branch2' for actual project code
+
 # master_thesis
 Towards Decentralised Grids:
 Masters Thesis Dirk van den Biggelaar 2017-2018
