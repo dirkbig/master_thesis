@@ -2,7 +2,7 @@ See 'dev_branch2' for actual project code
 
 # master_thesis
 Towards Decentralised Grids:
-masters Thesis Dirk van den Biggelaar 2017-2018 for the degree of Systems and Control engineer at the TU Delft, the Netherlands 
+masters Thesis Dirk van den Biggelaar 2017-2018 for the degree of Systems and Control engineer at the TU Delft, the Netherlands.
 
 This is a microgrid model with a distributed trading alghorithm running that coordinates the charging/discharging of batteries to stablise the grid. The algorithm is hierarchial in nature, roughly following a reversed-Stackleberg game as framework, but not closed-form. This causes the agents to converge together untill certain margins are met. Batteries are adapting their demand/surplus over time by using a prediction model to anticipate on scarcity/abundance of produced energy within the grid, dependant on weather patterns, the production capacity of agents and the energy consumption of their houses. 
 
