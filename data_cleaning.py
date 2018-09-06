@@ -3,7 +3,7 @@ from functions.function_file import *
 
 N_same_length = 10
 # sudo find /Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION -name ".DS_Store" -depth -exec rm {} \; removes all DS_Store files
-sudoPassword = 'biggelaar'
+sudoPassword = ''
 command = 'sudo find /Users/dirkvandenbiggelaar/Desktop/DATA/PRODUCTION -name ".DS_Store" -depth -exec rm {} \;'
 os.system('echo %s|sudo -S %s' % (sudoPassword, command))
 
